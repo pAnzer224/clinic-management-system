@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+::-webkit-scrollbar {
+  width: 7px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f2f5fb;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3f73ce;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #5287e5;
+}
+
+/* Horizontal Scrollbar */
+::-webkit-scrollbar-horizontal {
+  height: 4px;
+}
+
+::-webkit-scrollbar-horizontal-track {
+  background: #f2f5fb;
+}
+
+::-webkit-scrollbar-horizontal-thumb {
+  background: #3f73ce;
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-horizontal-thumb:hover {
+  background: #5287e5;
+}
+
+@font-face {
+  font-family: "Satoshi-Regular";
+  src: url("/src/assets/font/SATOSHI-REGULAR.OTF") format("opentype");
+}
+@font-face {
+  font-family: "Satoshi-Bold";
+  src: url("/src/assets/font/SATOSHI-BOLD.OTF") format("opentype");
+}
+@font-face {
+  font-family: "Satoshi-Black";
+  src: url("/src/assets/font/SATOSHI-BLACK.OTF") format("opentype");
+}
+@font-face {
+  font-family: "Satoshi-Light";
+  src: url("/src/assets/font/SATOSHI-LIGHT.OTF") format("opentype");
+}
+@font-face {
+  font-family: "Satoshi-Medium";
+  src: url("/src/assets/font/SATOSHI-MEDIUM.OTF") format("opentype");
+}
+@font-face {
+  font-family: "Satoshi-Italic";
+  src: url("/src/assets/font/SATOSHI-ITALIC.OTF") format("opentype");
+}
+@font-face {
+  font-family: "Satoshi-BoldItalic";
+  src: url("/src/assets/font/SATOSHI-BOLDITALIC.OTF") format("opentype");
+}
+@font-face {
+  font-family: "Satoshi-BlackItalic";
+  src: url("/src/assets/font/SATOSHI-BLACKITALIC.OTF") format("opentype");
+}
+@font-face {
+  font-family: "Satoshi-LightItalic";
+  src: url("/src/assets/font/SATOSHI-LIGHTITALIC.OTF") format("opentype");
+}
+@font-face {
+  font-family: "Satoshi-MediumItalic";
+  src: url("/src/assets/font/SATOSHI-MEDIUMITALIC.OTF") format("opentype");
+}
