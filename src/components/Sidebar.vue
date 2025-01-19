@@ -18,9 +18,9 @@
       <div class="relative ml-auto">
         <button
           @click="isMenuOpen = !isMenuOpen"
-          class="text-text/60 hover:text-text p-1"
+          class="text-text/70 rounded-full hover:bg-blue1/20 p-1"
         >
-          <EllipsisVerticalIcon class="size-6" />
+          <EllipsisVerticalIcon class="size-5" />
         </button>
 
         <div

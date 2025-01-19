@@ -104,10 +104,7 @@ export default {
         visits: Math.floor(Math.random() * 80) + 20,
         followups: Math.floor(Math.random() * 60) + 20,
       })),
-      recentTickets: [
-        { id: 1, title: "Add custom exports", status: "released" },
-        { id: 2, title: "Add more templates", status: "in progress" },
-      ],
+
       categories: [{ name: "Development" }, { name: "Web Design" }],
     };
   },

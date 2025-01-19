@@ -1,7 +1,14 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 ::-webkit-scrollbar {
   width: 7px;
 }
@@ -11,12 +18,12 @@
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #3f73ce;
+  background: #c1d3f3;
   border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #5287e5;
+  background: #7698d2;
 }
 
 /* Horizontal Scrollbar */

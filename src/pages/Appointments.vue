@@ -1,6 +1,15 @@
 <template>
   <main class="h-full space-y-6">
-    <h1 class="text-2xl font-satoshi-bold text-text">Appointments</h1>
+    <!-- Header -->
+    <div class="flex justify-between items-center">
+      <h1 class="text-2xl font-satoshi-bold text-text">Appointments</h1>
+      <button
+        @click="showModal"
+        class="bg-blue1 text-white px-4 py-2 rounded-full"
+      >
+        Schedule Appointment
+      </button>
+    </div>
 
     <div class="grid grid-cols-3 gap-4">
       <div class="col-span-2">
@@ -31,7 +40,7 @@
             >
               <div class="flex-1">
                 <h3 class="font-satoshi-medium text-md">
-                  {{ appointment.studentName }}
+                  {{ appointment.studentName }} ({{ appointment.studentId }})
                 </h3>
                 <p class="text-text/60">{{ appointment.reason }}</p>
               </div>
@@ -44,13 +53,13 @@
                   @click="editAppointment(appointment)"
                   class="text-blue1 hover:text-blue-700"
                 >
-                  Edit
+                  <PencilIcon class="h-5 w-5" />
                 </button>
                 <button
                   @click="deleteAppointment(appointment.id)"
                   class="text-red-600 hover:text-red-700"
                 >
-                  Cancel
+                  <TrashIcon class="h-5 w-5" />
                 </button>
               </div>
             </div>
@@ -76,13 +85,32 @@
         </h2>
         <form @submit.prevent="submitAppointment" class="space-y-4">
           <div>
-            <label class="block mb-1">Student Name</label>
-            <input
-              v-model="appointmentForm.studentName"
-              type="text"
-              required
-              class="w-full px-4 py-2 rounded-full bg-graytint"
-            />
+            <label class="block mb-1">Student</label>
+            <div class="flex items-center gap-2">
+              <select
+                v-model="selectedStudent"
+                required
+                class="flex-1 px-4 py-2 rounded-full bg-graytint"
+              >
+                <option value="">Select Student</option>
+                <option
+                  v-for="student in students"
+                  :key="student.studentId"
+                  :value="student"
+                >
+                  {{ student.firstName }} {{ student.lastName }} ({{
+                    student.studentId
+                  }})
+                </option>
+              </select>
+              <button
+                type="button"
+                @click="showStudentModal = true"
+                class="bg-blue2 text-white p-2 rounded-full hover:bg-blue1"
+              >
+                <PlusIcon class="size-3" />
+              </button>
+            </div>
           </div>
           <div>
             <label class="block mb-1">Date</label>
@@ -132,11 +160,19 @@
         </form>
       </div>
     </div>
+
+    <!-- Student Modal -->
+    <StudentModal
+      v-model="showStudentModal"
+      :is-editing="false"
+      :initial-form-data="studentFormData"
+      @submit="handleStudentSubmit"
+    />
   </main>
 </template>
 
 <script>
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import {
   collection,
   addDoc,
@@ -146,21 +182,50 @@ import {
   doc,
   query,
   orderBy,
+  setDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
+import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/vue/24/outline";
 import AppointmentCalendar from "@/components/AppointmentCalendar.vue";
+import StudentModal from "@/components/StudentModal.vue";
 
 export default {
   name: "Appointments",
   components: {
     AppointmentCalendar,
+    StudentModal,
+    PlusIcon,
+    PencilIcon,
+    TrashIcon,
   },
   setup() {
     const appointments = ref([]);
+    const students = ref([]);
     const showScheduleModal = ref(false);
+    const showStudentModal = ref(false);
     const isEditing = ref(false);
     const selectedDate = ref(new Date().toISOString().split("T")[0]);
     const editingId = ref(null);
+    const selectedStudent = ref("");
+    const studentFormData = ref({
+      studentId: "",
+      lastName: "",
+      firstName: "",
+      middleInitial: "",
+      age: "",
+      sex: "",
+      nationality: "",
+      address: "",
+      religion: "",
+      course: "",
+      yearLevel: "1st Year",
+      guardianName: "",
+      guardianOccupation: "",
+      guardianAddress: "",
+      guardianContact: "",
+      profileImage: "",
+      labTest: "",
+    });
 
     const timeSlots = [
       "09:00 AM",
@@ -181,12 +246,25 @@ export default {
 
     const initialFormState = {
       studentName: "",
+      studentId: "",
       date: "",
       time: "",
       reason: "",
     };
 
     const appointmentForm = ref({ ...initialFormState });
+
+    watch(selectedStudent, (student) => {
+      if (student) {
+        appointmentForm.value.studentName = `${student.firstName} ${student.lastName}`;
+        appointmentForm.value.studentId = student.studentId;
+      }
+    });
+
+    async function fetchStudents() {
+      const querySnapshot = await getDocs(collection(db, "students"));
+      students.value = querySnapshot.docs.map((doc) => ({ ...doc.data() }));
+    }
 
     async function fetchAppointments() {
       const querySnapshot = await getDocs(
@@ -204,6 +282,10 @@ export default {
         month: "short",
         day: "numeric",
       });
+    }
+
+    function showModal() {
+      showScheduleModal.value = true;
     }
 
     const handleDaySelected = (date) => {
@@ -229,6 +311,7 @@ export default {
         await fetchAppointments();
         showScheduleModal.value = false;
         appointmentForm.value = { ...initialFormState };
+        selectedStudent.value = "";
         isEditing.value = false;
         editingId.value = null;
       } catch (error) {
@@ -236,10 +319,23 @@ export default {
       }
     }
 
+    async function handleStudentSubmit(data) {
+      try {
+        await setDoc(doc(db, "students", data.studentId), data);
+        await fetchStudents();
+        showStudentModal.value = false;
+      } catch (error) {
+        console.error("Error saving student:", error);
+      }
+    }
+
     function editAppointment(appointment) {
       isEditing.value = true;
       editingId.value = appointment.id;
       appointmentForm.value = { ...appointment };
+      selectedStudent.value = students.value.find(
+        (s) => s.studentId === appointment.studentId
+      );
       showScheduleModal.value = true;
     }
 
@@ -255,16 +351,23 @@ export default {
     }
 
     fetchAppointments();
+    fetchStudents();
 
     return {
       appointments,
+      students,
       showScheduleModal,
+      showStudentModal,
       isEditing,
       selectedDate,
+      selectedStudent,
       appointmentForm,
+      studentFormData,
       timeSlots,
       formatDate,
+      showModal,
       submitAppointment,
+      handleStudentSubmit,
       editAppointment,
       deleteAppointment,
       handleDaySelected,

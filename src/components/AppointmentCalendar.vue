@@ -1,7 +1,5 @@
 <template>
-  <div
-    class="bg-white rounded-2xl p-8 shadow-sm flex flex-col h-[calc(92vh-8rem)]"
-  >
+  <div class="bg-white rounded-2xl p-8 shadow-sm flex flex-col h-full">
     <div class="flex justify-between items-center mb-4">
       <div class="flex items-center gap-2">
         <CalendarIcon class="size-5 text-gray-600" />
@@ -55,7 +53,7 @@
 
     <div v-if="selectedDay" class="mt-4">
       <div class="flex items-center gap-2 mb-3">
-        <ClockIcon class="size-4 text-gray-600" />
+        <ClockIcon class="size-4 text-gray-500" />
         <h4 class="text-md font-satoshi-medium text-text">
           Available Time Slots
         </h4>

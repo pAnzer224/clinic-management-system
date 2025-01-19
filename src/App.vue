@@ -6,7 +6,7 @@
         <div class="flex-1 flex overflow-hidden px-[140px] py-8">
           <div class="flex gap-5 h-full w-full">
             <Sidebar />
-            <div class="flex-1 overflow-y-auto">
+            <div class="flex-1 overflow-y-scroll no-scrollbar">
               <router-view></router-view>
             </div>
           </div>
