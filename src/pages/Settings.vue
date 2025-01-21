@@ -1,14 +1,20 @@
 <template>
   <main class="flex-1 space-y-6">
-    <h1 class="text-2xl font-satoshi-bold text-text">Admin Settings</h1>
+    <h1 class="text-2xl font-satoshi-bold text-text px-4 sm:px-6 lg:px-0">
+      Admin Settings
+    </h1>
 
-    <div class="bg-white rounded-2xl p-8 shadow-sm">
-      <div class="flex justify-between items-center mb-6">
+    <div
+      class="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-sm mx-4 sm:mx-6 lg:mx-0"
+    >
+      <div
+        class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 sm:gap-0"
+      >
         <h2 class="text-md font-satoshi-medium text-text">Admin Management</h2>
         <button
           @click="openAdminModal(null)"
           :disabled="admins.length >= 3"
-          class="bg-blue1 text-white px-4 py-2 rounded-full"
+          class="bg-blue1 text-white px-4 py-2 rounded-full w-full sm:w-auto"
         >
           Add Admin
         </button>
@@ -18,10 +24,12 @@
         <div
           v-for="admin in admins"
           :key="admin.adminId"
-          class="flex justify-between items-center p-4 bg-gray-50 rounded-lg"
+          class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-gray-50 rounded-lg gap-4 sm:gap-0"
         >
-          <div class="flex items-center gap-4">
-            <div class="w-12 h-12 rounded-full bg-blue1/10 overflow-hidden">
+          <div class="flex items-center gap-4 w-full sm:w-auto">
+            <div
+              class="w-12 h-12 rounded-full bg-blue1/10 overflow-hidden flex-shrink-0"
+            >
               <img
                 v-if="admin.profileImage"
                 :src="admin.profileImage"
@@ -39,7 +47,9 @@
               <p class="text-md text-text/50">ID: {{ admin.adminId }}</p>
             </div>
           </div>
-          <div class="flex items-center gap-4">
+          <div
+            class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end"
+          >
             <span class="text-sm text-gray-400">
               Last Login: {{ admin.lastLogin || "Never" }}
             </span>
@@ -57,9 +67,9 @@
     <!-- Admin Modal -->
     <div
       v-if="showAdminModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
     >
-      <div class="bg-white rounded-2xl p-8 w-full max-w-md">
+      <div class="bg-white rounded-2xl p-4 sm:p-8 w-full max-w-md">
         <h3 class="text-lg font-satoshi-medium mb-6">
           {{ editingAdmin ? "Edit Admin" : "Add New Admin" }}
         </h3>

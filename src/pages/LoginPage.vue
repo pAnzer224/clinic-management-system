@@ -94,15 +94,7 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { db } from "@/firebase-config";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  and,
-  updateDoc,
-  doc,
-} from "firebase/firestore";
+import { collection, getDocs, query, where } from "firebase/firestore";
 
 export default {
   name: "LoginPage",
@@ -120,23 +112,23 @@ export default {
 
       try {
         const adminCollection = collection(db, "admins");
-        const q = query(
-          adminCollection,
-          and(
-            where("email", "==", email.value),
-            where("fullName", "==", fullName.value)
-          )
-        );
+        const q = query(adminCollection, where("email", "==", email.value));
         const snapshot = await getDocs(q);
 
         const admin = snapshot.docs[0]?.data();
-        const adminId = snapshot.docs[0]?.id;
 
-        if (admin && admin.password === password.value) {
-          await updateDoc(doc(db, "admins", adminId), {
-            lastLogin: new Date(),
-          });
-          localStorage.setItem("currentAdmin", JSON.stringify(admin));
+        if (
+          admin &&
+          admin.password === password.value &&
+          admin.fullName === fullName.value
+        ) {
+          localStorage.setItem(
+            "currentAdmin",
+            JSON.stringify({
+              ...admin,
+              lastLogin: new Date(),
+            })
+          );
           router.push("/overview");
         } else {
           error.value = "Invalid credentials. Please try again.";

@@ -1,9 +1,11 @@
 <template>
   <aside
-    class="sticky w-56 bg-graytint rounded-2xl p-6 shadow-sm h-[calc(99.9vh-8rem)]"
+    class="sticky w-full sm:w-56 bg-graytint rounded-2xl p-4 sm:p-6 shadow-sm h-auto sm:h-[calc(99.9vh-8rem)]"
   >
-    <div class="flex items-center gap-3 mb-12 relative">
-      <div class="w-8 h-8 rounded-full bg-blue1/10 overflow-hidden">
+    <div class="flex items-center gap-3 mb-6 sm:mb-12 relative">
+      <div
+        class="w-8 h-8 rounded-full bg-blue1/10 overflow-hidden flex-shrink-0"
+      >
         <img
           v-if="currentAdmin.profileImage"
           :src="currentAdmin.profileImage"
@@ -11,7 +13,7 @@
           alt="Profile"
         />
       </div>
-      <span class="text-md font-satoshi-medium text-text">{{
+      <span class="text-[13px] font-satoshi-medium text-text truncate">{{
         currentAdmin.fullName
       }}</span>
 
@@ -38,7 +40,7 @@
       </div>
     </div>
 
-    <nav class="space-y-4">
+    <nav class="space-y-2 sm:space-y-4">
       <router-link
         v-for="item in navigation"
         :key="item.path"
@@ -51,9 +53,9 @@
       >
         <component
           :is="item.icon"
-          class="size-6 text-blue2/80 group-hover:text-blue2 ml-2"
+          class="size-5 sm:size-6 text-blue2/80 group-hover:text-blue2 ml-1 sm:ml-2"
         />
-        {{ item.name }}
+        <span class="truncate">{{ item.name }}</span>
       </router-link>
     </nav>
   </aside>

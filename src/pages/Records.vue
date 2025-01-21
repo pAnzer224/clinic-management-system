@@ -50,13 +50,10 @@
             <td>{{ record.diagnosis }}</td>
             <td>{{ record.status }}</td>
             <td class="space-x-2">
-              <button @click="viewRecord(record)" class="text-blue1">
-                <EyeIcon class="h-5 w-5 inline" />
-              </button>
               <button @click="editRecord(record)" class="text-green-600">
                 <PencilIcon class="h-5 w-5 inline" />
               </button>
-              <button @click="deleteRecord(record.id)" class="text-red-600">
+              <button @click="deleteRecord(record)" class="text-red-600">
                 <TrashIcon class="h-5 w-5 inline" />
               </button>
             </td>
@@ -114,12 +111,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
-import {
-  EyeIcon,
-  PencilIcon,
-  TrashIcon,
-  XMarkIcon,
-} from "@heroicons/vue/24/outline";
+import { PencilIcon, TrashIcon, XMarkIcon } from "@heroicons/vue/24/outline";
 import RecordModal from "@/components/RecordModal.vue";
 
 const TABLE_HEADERS = [
@@ -157,7 +149,6 @@ export default {
   name: "Records",
   components: {
     RecordModal,
-    EyeIcon,
     PencilIcon,
     TrashIcon,
     XMarkIcon,
@@ -262,25 +253,19 @@ export default {
       showModal.value = true;
     }
 
-    function viewRecord(record) {
-      isEditing.value = true;
-      formData.value = { ...record };
-      showModal.value = true;
-    }
-
     function editRecord(record) {
       isEditing.value = true;
       formData.value = { ...record };
       showModal.value = true;
     }
 
-    async function deleteRecord(id) {
+    async function deleteRecord(record) {
       if (confirm("Are you sure you want to delete this record?")) {
-        await deleteDoc(doc(db, "medicalRecords", id));
+        const docRef = doc(db, "medicalRecords", record.id.toString());
+        await deleteDoc(docRef);
         await fetchRecords();
       }
     }
-
     async function submitForm(data) {
       try {
         const docRef = doc(
@@ -318,7 +303,6 @@ export default {
       TABLE_HEADERS,
       formatDate,
       showAddRecord,
-      viewRecord,
       editRecord,
       deleteRecord,
       submitForm,
