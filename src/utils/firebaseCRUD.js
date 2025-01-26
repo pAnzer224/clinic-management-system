@@ -1,91 +1,96 @@
-import { db } from "@/firebase-config";
+import { ref } from "vue";
 import {
   collection,
-  addDoc,
   getDocs,
-  updateDoc,
-  deleteDoc,
   doc,
-  query,
-  orderBy,
-  where,
   setDoc,
-  serverTimestamp,
+  deleteDoc,
+  getDoc,
 } from "firebase/firestore";
+import { db } from "@/firebase-config";
 
-export async function createDocument(collectionName, data) {
-  try {
-    const docRef = await addDoc(collection(db, collectionName), data);
-    return docRef.id;
-  } catch (error) {
-    console.error("Error creating document:", error);
-    throw error;
-  }
-}
+export function useCRUD(collectionName) {
+  const items = ref([]);
+  const loading = ref(false);
+  const error = ref(null);
 
-export async function readDocuments(
-  collectionName,
-  orderByField = null,
-  whereClause = null
-) {
-  try {
-    let q = collection(db, collectionName);
-
-    // Build the query
-    const queryConstraints = [];
-
-    if (orderByField) {
-      queryConstraints.push(orderBy(orderByField));
+  async function fetchItems() {
+    loading.value = true;
+    error.value = null;
+    try {
+      const querySnapshot = await getDocs(collection(db, collectionName));
+      items.value = querySnapshot.docs.map((doc) => ({ ...doc.data() }));
+    } catch (err) {
+      error.value = err;
+    } finally {
+      loading.value = false;
     }
+  }
 
-    if (whereClause && Array.isArray(whereClause)) {
-      const [field, operator, value] = whereClause;
-      queryConstraints.push(where(field, operator, value));
+  async function addItem(data) {
+    loading.value = true;
+    error.value = null;
+    try {
+      await setDoc(doc(db, collectionName, data.id), data);
+      await fetchItems();
+      return data;
+    } catch (err) {
+      error.value = err;
+    } finally {
+      loading.value = false;
     }
+  }
 
-    // Apply all query constraints if any exist
-    if (queryConstraints.length > 0) {
-      q = query(q, ...queryConstraints);
+  async function updateItem(data) {
+    loading.value = true;
+    error.value = null;
+    try {
+      await setDoc(doc(db, collectionName, data.id), data);
+      await fetchItems();
+      return data;
+    } catch (err) {
+      error.value = err;
+    } finally {
+      loading.value = false;
     }
-
-    const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-  } catch (error) {
-    console.error("Error reading documents:", error);
-    throw error;
-  }
-}
-
-export async function updateDocument(collectionName, id, data) {
-  try {
-    await updateDoc(doc(db, collectionName, id), data);
-  } catch (error) {
-    console.error("Error updating document:", error);
-    throw error;
-  }
-}
-
-export async function deleteDocument(collectionName, id) {
-  if (!collectionName || !id) {
-    throw new Error(
-      "Collection name and document ID are required for deletion"
-    );
   }
 
-  try {
-    const docRef = doc(db, collectionName, id);
-    await deleteDoc(docRef);
-  } catch (error) {
-    console.error("Error deleting document:", error);
-    throw error;
+  async function deleteItem(itemId) {
+    loading.value = true;
+    error.value = null;
+    try {
+      if (confirm("Are you sure you want to delete this item?")) {
+        await deleteDoc(doc(db, collectionName, itemId));
+        await fetchItems();
+      }
+    } catch (err) {
+      error.value = err;
+    } finally {
+      loading.value = false;
+    }
   }
-}
 
-export async function setDocument(collectionName, id, data) {
-  try {
-    await setDoc(doc(db, collectionName, id), data, { merge: true });
-  } catch (error) {
-    console.error("Error setting document:", error);
-    throw error;
+  async function getItem(itemId) {
+    loading.value = true;
+    error.value = null;
+    try {
+      const docSnap = await getDoc(doc(db, collectionName, itemId));
+      return docSnap.exists() ? docSnap.data() : null;
+    } catch (err) {
+      error.value = err;
+    } finally {
+      loading.value = false;
+    }
   }
+
+  return {
+    items,
+    loading,
+    error,
+    fetchItems,
+    addItem,
+    updateItem,
+    deleteItem,
+    getItem,
+  };
 }

@@ -22,7 +22,7 @@
 
       <div class="space-y-4">
         <div
-          v-for="admin in admins"
+          v-for="admin in items"
           :key="admin.adminId"
           class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-gray-50 rounded-lg gap-4 sm:gap-0"
         >
@@ -64,7 +64,7 @@
       </div>
     </div>
 
-    <!-- Admin Modal -->
+    <!-- Admin Modal (remains the same as before) -->
     <div
       v-if="showAdminModal"
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
@@ -169,13 +169,8 @@
 
 <script>
 import { db } from "@/firebase-config";
-import {
-  collection,
-  getDocs,
-  setDoc,
-  doc,
-  serverTimestamp,
-} from "firebase/firestore";
+import { useCRUD } from "@/utils/firebaseCRUD";
+import { serverTimestamp } from "firebase/firestore";
 import { PencilIcon } from "@heroicons/vue/24/solid";
 import { handleImageUpload } from "@/utils/image-utils";
 
@@ -184,9 +179,29 @@ export default {
   components: {
     PencilIcon,
   },
+  setup() {
+    const {
+      items,
+      loading,
+      error,
+      fetchItems,
+      addItem,
+      updateItem,
+      deleteItem,
+    } = useCRUD("admins");
+    return {
+      items,
+      loading,
+      error,
+      fetchItems,
+      addItem,
+      updateItem,
+      deleteItem,
+    };
+  },
   data() {
     return {
-      admins: [],
+      admins: [], // Keep this for compatibility
       showAdminModal: false,
       editingAdmin: null,
       adminForm: {
@@ -201,7 +216,7 @@ export default {
   },
   computed: {
     availableAdminIds() {
-      const usedIds = new Set(this.admins.map((admin) => admin.adminId));
+      const usedIds = new Set(this.items.map((admin) => admin.adminId));
       return ["ADMIN1", "ADMIN2", "ADMIN3"].filter(
         (id) =>
           !usedIds.has(id) ||
@@ -209,14 +224,17 @@ export default {
       );
     },
   },
+  watch: {
+    items: {
+      immediate: true,
+      handler(newItems) {
+        this.admins = newItems; // Sync items with admins to maintain original template compatibility
+      },
+    },
+  },
   methods: {
     async fetchAdmins() {
-      const adminCollection = collection(db, "admins");
-      const snapshot = await getDocs(adminCollection);
-      this.admins = snapshot.docs.map((doc) => ({
-        ...doc.data(),
-        id: doc.id,
-      }));
+      await this.fetchItems(); // Use the CRUD hook's fetch method
     },
     openAdminModal(admin) {
       this.editingAdmin = admin;
@@ -246,6 +264,7 @@ export default {
     },
     async saveAdmin() {
       const adminData = {
+        id: this.adminForm.adminId, // Use id for Firebase doc ID
         adminId: this.adminForm.adminId,
         fullName: this.adminForm.fullName,
         email: this.adminForm.email,
@@ -262,9 +281,11 @@ export default {
         adminData.lastLogin = null;
       }
 
-      await setDoc(doc(db, "admins", this.adminForm.adminId), adminData, {
-        merge: true,
-      });
+      if (this.editingAdmin) {
+        await this.updateItem(adminData);
+      } else {
+        await this.addItem(adminData);
+      }
 
       if (
         JSON.parse(localStorage.getItem("currentAdmin"))?.adminId ===
@@ -280,7 +301,6 @@ export default {
       }
 
       this.showAdminModal = false;
-      this.fetchAdmins();
     },
   },
   async mounted() {

@@ -70,6 +70,18 @@
               </div>
             </div>
           </div>
+
+          <!-- Lab Document Section -->
+          <div v-if="studentDetails.labTest" class="mt-4 rounded-xl p-4">
+            <h3 class="font-satoshi-bold mb-4">Lab Document</h3>
+            <button
+              @click="viewLabDocument"
+              class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue1 text-white rounded-full text-sm"
+            >
+              <DocumentIcon class="size-5" />
+              View Lab Document
+            </button>
+          </div>
         </div>
 
         <!-- Right side: Record Form -->
@@ -241,9 +253,11 @@
 </template>
 
 <script>
-import { ref, computed, watch } from "vue";
+import { ref, computed, watch, onMounted } from "vue";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/firebase-config";
+import { useCRUD } from "@/utils/firebaseCRUD";
+import { DocumentIcon } from "@heroicons/vue/24/solid";
 
 const FORM_SECTIONS = [
   {
@@ -297,6 +311,7 @@ export default {
   },
   emits: ["update:modelValue", "submit"],
   setup(props, { emit }) {
+    const { addItem, updateItem } = useCRUD("medicalRecords");
     const formData = ref({});
     const newSymptom = ref("");
     const newMedication = ref({ name: "", dosage: "" });
@@ -381,13 +396,39 @@ export default {
         closeModal();
       }
     }
+    function viewLabDocument() {
+      if (studentDetails.value.labTest) {
+        const newWindow = window.open();
+        newWindow.document.write(`
+      <iframe 
+        src="${studentDetails.value.labTest}" 
+        style="width:100%;height:100vh;border:none;"
+      ></iframe>
+    `);
+      }
+    }
 
-    function submitForm() {
+    async function submitForm() {
       if (!formData.value.date) {
         formData.value.date = new Date().toISOString().split("T")[0];
       }
-      emit("submit", formData.value);
-      closeModal();
+
+      // Generate unique ID if not exists
+      if (!formData.value.id) {
+        formData.value.id = `record_${Date.now()}`;
+      }
+
+      try {
+        if (props.isEditing) {
+          await updateItem(formData.value);
+        } else {
+          await addItem(formData.value);
+        }
+        emit("submit", formData.value);
+        closeModal();
+      } catch (error) {
+        console.error("Error submitting record:", error);
+      }
     }
 
     return {
@@ -403,6 +444,7 @@ export default {
       closeModal,
       handleBackgroundClick,
       submitForm,
+      viewLabDocument,
     };
   },
 };

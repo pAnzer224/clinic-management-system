@@ -28,7 +28,7 @@
         </div>
 
         <!-- Student Table -->
-        <table class="w-full">
+        <table v-if="!loading" class="w-full">
           <thead>
             <tr class="text-left text-text/60">
               <th v-for="header in TABLE_HEADERS" :key="header" class="pb-4">
@@ -39,10 +39,20 @@
           <tbody>
             <tr
               v-for="student in filteredStudents"
-              :key="student.id"
+              :key="student.studentId"
               class="border-t border-graytint"
             >
-              <td class="py-4">{{ student.studentId }}</td>
+              <td class="py-4 flex items-center gap-4">
+                <div class="w-10 h-10 rounded-full bg-blue1/10 overflow-hidden">
+                  <img
+                    v-if="student.profileImage"
+                    :src="student.profileImage"
+                    class="w-full h-full object-cover"
+                    alt="Profile"
+                  />
+                </div>
+                {{ student.studentId }}
+              </td>
               <td>
                 {{ student.lastName }}, {{ student.firstName }}
                 {{ student.middleInitial }}
@@ -50,19 +60,26 @@
               <td>{{ student.course }}</td>
               <td>{{ student.yearLevel }}</td>
               <td class="space-x-2">
-                <button @click="viewStudent(student)" class="text-blue1">
+                <button
+                  @click="viewStudent(student.studentId)"
+                  class="text-blue1"
+                >
                   <EyeIcon class="h-5 w-5 inline" />
                 </button>
                 <button @click="editStudent(student)" class="text-green-600">
                   <PencilIcon class="h-5 w-5 inline" />
                 </button>
-                <button @click="deleteStudent(student)" class="text-red-600">
+                <button
+                  @click="deleteStudent(student.studentId)"
+                  class="text-red-600"
+                >
                   <TrashIcon class="h-5 w-5 inline" />
                 </button>
               </td>
             </tr>
           </tbody>
         </table>
+        <div v-else>Loading...</div>
       </div>
     </div>
 
@@ -79,17 +96,10 @@
 <script>
 import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  deleteDoc,
-  getDoc,
-} from "firebase/firestore";
-import { db } from "@/firebase-config";
 import { EyeIcon, PencilIcon, TrashIcon } from "@heroicons/vue/24/outline";
 import StudentModal from "@/components/StudentModal.vue";
+import { useCRUD } from "@/utils/firebaseCRUD";
+import { serverTimestamp } from "firebase/firestore";
 
 const YEAR_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 const TABLE_HEADERS = ["Student ID", "Name", "Course", "Year Level", "Actions"];
@@ -124,7 +134,17 @@ export default {
   },
   setup() {
     const route = useRoute();
-    const students = ref([]);
+    const {
+      items: students,
+      loading,
+      error,
+      fetchItems: fetchStudents,
+      addItem,
+      updateItem,
+      deleteItem,
+      getItem,
+    } = useCRUD("students");
+
     const searchQuery = ref("");
     const filterYear = ref("");
     const showModal = ref(false);
@@ -149,12 +169,8 @@ export default {
       if (route.query.openModal === "true") {
         add();
       }
+      fetchStudents();
     });
-
-    async function fetchStudents() {
-      const querySnapshot = await getDocs(collection(db, "students"));
-      students.value = querySnapshot.docs.map((doc) => ({ ...doc.data() }));
-    }
 
     function add() {
       isEditing.value = false;
@@ -162,10 +178,10 @@ export default {
       showModal.value = true;
     }
 
-    async function viewStudent(student) {
-      const docSnap = await getDoc(doc(db, "students", student.studentId));
-      if (docSnap.exists()) {
-        formData.value = docSnap.data();
+    async function viewStudent(studentId) {
+      const studentData = await getItem(studentId);
+      if (studentData) {
+        formData.value = studentData;
         isEditing.value = true;
         showModal.value = true;
       }
@@ -177,26 +193,37 @@ export default {
       showModal.value = true;
     }
 
-    async function deleteStudent(student) {
-      if (confirm("Are you sure you want to delete this student?")) {
-        await deleteDoc(doc(db, "students", student.studentId));
-        await fetchStudents();
-      }
+    async function deleteStudent(studentId) {
+      await deleteItem(studentId);
     }
 
     async function submitForm(data) {
       try {
-        await setDoc(doc(db, "students", data.studentId), data);
-        await fetchStudents();
+        const submitData = {
+          ...data,
+          id: data.studentId,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (!isEditing.value) {
+          submitData.createdAt = serverTimestamp();
+        }
+
+        if (isEditing.value) {
+          await updateItem(submitData);
+        } else {
+          await addItem(submitData);
+        }
+        showModal.value = false;
       } catch (error) {
         console.error("Error saving student:", error);
       }
     }
 
-    fetchStudents();
-
     return {
       students,
+      loading,
+      error,
       searchQuery,
       filterYear,
       showModal,
