@@ -60,12 +60,6 @@
               <td>{{ student.course }}</td>
               <td>{{ student.yearLevel }}</td>
               <td class="space-x-2">
-                <button
-                  @click="viewStudent(student.studentId)"
-                  class="text-blue1"
-                >
-                  <EyeIcon class="h-5 w-5 inline" />
-                </button>
                 <button @click="editStudent(student)" class="text-green-600">
                   <PencilIcon class="h-5 w-5 inline" />
                 </button>
@@ -96,7 +90,7 @@
 <script>
 import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
-import { EyeIcon, PencilIcon, TrashIcon } from "@heroicons/vue/24/outline";
+import { PencilIcon, TrashIcon } from "@heroicons/vue/24/outline";
 import StudentModal from "@/components/StudentModal.vue";
 import { useCRUD } from "@/utils/firebaseCRUD";
 import { serverTimestamp } from "firebase/firestore";
@@ -128,7 +122,6 @@ export default {
   name: "Students",
   components: {
     StudentModal,
-    EyeIcon,
     PencilIcon,
     TrashIcon,
   },
@@ -178,15 +171,6 @@ export default {
       showModal.value = true;
     }
 
-    async function viewStudent(studentId) {
-      const studentData = await getItem(studentId);
-      if (studentData) {
-        formData.value = studentData;
-        isEditing.value = true;
-        showModal.value = true;
-      }
-    }
-
     function editStudent(student) {
       isEditing.value = true;
       formData.value = { ...student };
@@ -233,7 +217,6 @@ export default {
       YEAR_OPTIONS,
       TABLE_HEADERS,
       add,
-      viewStudent,
       editStudent,
       deleteStudent,
       submitForm,

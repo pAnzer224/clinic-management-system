@@ -1,573 +1,414 @@
 <template>
   <div
     v-if="modelValue"
-    class="fixed inset-0 flex justify-center items-center bg-black/50"
+    class="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
     @click="handleBackgroundClick"
   >
     <div
-      class="bg-white rounded-2xl p-8 shadow-lg w-[60vw] max-h-[90vh] overflow-y-auto"
+      class="bg-white rounded-2xl p-8 shadow-lg w-[800px] h-[90vh]"
       @click.stop
     >
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-xl font-satoshi-bold">
-          {{ isEditing ? "Edit" : "Add" }} Student
+          {{ isEditing ? "Edit" : "New" }} Student
         </h2>
         <button @click="closeModal" class="text-gray-500 hover:text-gray-700">
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <XMarkIcon class="w-6 h-6" />
         </button>
       </div>
 
-      <form @submit.prevent="submitForm">
-        <!-- Profile Image Upload -->
-        <div class="flex justify-center mb-4">
-          <div class="relative">
-            <div class="w-24 h-24 rounded-full bg-blue1/10 overflow-hidden">
-              <img
-                v-if="imagePreview"
-                :src="imagePreview"
-                class="w-full h-full object-cover"
-                alt="Profile Preview"
-              />
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              @change="handleImageChange"
-              class="hidden"
-              ref="fileInput"
-            />
-            <button
-              type="button"
-              @click="$refs.fileInput.click()"
-              class="absolute bottom-0 right-0 bg-blue1 text-white p-2 rounded-full"
-            >
-              <PencilIcon class="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-
-        <!-- Form Fields -->
-        <div class="space-y-6">
-          <!-- Personal Information -->
-          <div>
-            <h3 class="font-satoshi-bold mb-4">Personal Information</h3>
-            <div class="grid grid-cols-3 gap-4">
-              <input
-                v-model="formData.studentId"
-                placeholder="Student ID"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              />
-              <input
-                v-model="formData.lastName"
-                placeholder="Last Name"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              />
-              <input
-                v-model="formData.firstName"
-                placeholder="First Name"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              />
-              <input
-                v-model="formData.middleInitial"
-                placeholder="Middle Initial"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-              />
-              <input
-                v-model="formData.age"
-                type="number"
-                placeholder="Age"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              />
-              <select
-                v-model="formData.sex"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              >
-                <option value="" disabled>Select Sex</option>
-                <option>Male</option>
-                <option>Female</option>
-              </select>
-              <input
-                v-model="formData.nationality"
-                placeholder="Nationality"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              />
-              <input
-                v-model="formData.address"
-                placeholder="Address"
-                class="w-full px-4 py-2 rounded-lg bg-graytint col-span-2"
-                required
-              />
-              <input
-                v-model="formData.religion"
-                placeholder="Religion"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              />
+      <div class="flex gap-6 h-[calc(90vh-88px)]">
+        <!-- Left side: Student Information Display (when editing) -->
+        <div v-if="isEditing" class="w-96 flex-shrink-0">
+          <div class="bg-graytint/50 rounded-xl p-4">
+            <h3 class="font-satoshi-bold mb-4">Student Information</h3>
+            <div class="space-y-3">
+              <div class="bg-white p-3 rounded-lg shadow-sm">
+                <div class="flex items-center gap-3 mb-3">
+                  <div
+                    class="w-12 h-12 rounded-full bg-blue1/10 overflow-hidden"
+                  >
+                    <img
+                      v-if="formData.profileImage"
+                      :src="formData.profileImage"
+                      class="w-full h-full object-cover"
+                      alt="Student Profile"
+                    />
+                  </div>
+                  <div>
+                    <p class="font-medium">
+                      {{ formData.personalInfo.firstName }}
+                      {{ formData.personalInfo.lastName }}
+                    </p>
+                    <p class="text-sm text-gray-600">
+                      {{ formData.personalInfo.studentId }}
+                    </p>
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <p class="text-gray-500">Course</p>
+                    <p class="font-medium">
+                      {{ formData.academicInfo.course }}
+                    </p>
+                  </div>
+                  <div>
+                    <p class="text-gray-500">Year Level</p>
+                    <p class="font-medium">
+                      {{ formData.academicInfo.yearLevel }}
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <!-- Academic Information -->
-          <div>
-            <h3 class="font-satoshi-bold mb-4">Academic Information</h3>
-            <div class="grid grid-cols-2 gap-4">
-              <select
-                v-model="formData.course"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              >
-                <option value="" disabled>Select Course</option>
-                <option>BSCRIM</option>
-                <option>BSED</option>
-                <option>BSIT</option>
-                <option>BSAB</option>
-                <option>HM</option>
-              </select>
-              <select
-                v-model="formData.yearLevel"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              >
-                <option value="" disabled>Select Year Level</option>
-                <option>1st Year</option>
-                <option>2nd Year</option>
-                <option>3rd Year</option>
-                <option>4th Year</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Emergency Contact -->
-          <div>
-            <h3 class="font-satoshi-bold mb-4">Emergency Contact</h3>
-            <div class="grid grid-cols-2 gap-4">
-              <input
-                v-model="formData.guardianName"
-                placeholder="Parent/Guardian Name"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              />
-              <input
-                v-model="formData.guardianOccupation"
-                placeholder="Occupation"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              />
-              <input
-                v-model="formData.guardianAddress"
-                placeholder="Address"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              />
-              <input
-                v-model="formData.guardianContact"
-                placeholder="Contact Number"
-                type="tel"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              />
-            </div>
-          </div>
-
-          <!-- Documents -->
-          <div>
+          <!-- Documents Section -->
+          <div class="mt-4 bg-graytint/50 rounded-xl p-4">
             <h3 class="font-satoshi-bold mb-4">Documents</h3>
-            <div class="space-y-4">
-              <!-- Medical Certificate -->
-              <div class="relative">
-                <input
-                  type="file"
-                  @change="handleFileChange('medicalCertificate', $event)"
-                  accept=".pdf,.doc,.docx"
-                  class="hidden"
-                  ref="medicalCertificateInput"
-                />
-                <div class="flex gap-2">
-                  <label
-                    @click="$refs.medicalCertificateInput.click()"
-                    class="flex items-center gap-2 flex-1 px-4 py-2 rounded-md bg-graytint cursor-pointer hover:bg-gray-100"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                      />
-                    </svg>
-                    <span class="text-sm">
-                      {{
-                        formData.medicalCertificate
-                          ? "Change file"
-                          : "Upload Medical Certificate"
-                      }}
-                    </span>
-                  </label>
-                  <button
-                    v-if="formData.medicalCertificate"
-                    type="button"
-                    @click="viewFile('medicalCertificate')"
-                    class="px-4 py-2 bg-blue1 text-white rounded-full text-sm"
-                  >
-                    View File
-                  </button>
-                  <span
-                    v-if="formData.medicalCertificate"
-                    class="text-green-500"
-                    >Uploaded</span
-                  >
-                </div>
-              </div>
-
-              <!-- Urinalysis Report -->
-              <div class="relative">
-                <input
-                  type="file"
-                  @change="handleFileChange('urinalysisReport', $event)"
-                  accept=".pdf,.doc,.docx"
-                  class="hidden"
-                  ref="urinalysisReportInput"
-                />
-                <div class="flex gap-2">
-                  <label
-                    @click="$refs.urinalysisReportInput.click()"
-                    class="flex items-center gap-2 flex-1 px-4 py-2 rounded-md bg-graytint cursor-pointer hover:bg-gray-100"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                      />
-                    </svg>
-                    <span class="text-sm">
-                      {{
-                        formData.urinalysisReport
-                          ? "Change file"
-                          : "Upload Urinalysis Report"
-                      }}
-                    </span>
-                  </label>
-                  <button
-                    v-if="formData.urinalysisReport"
-                    type="button"
-                    @click="viewFile('urinalysisReport')"
-                    class="px-4 py-2 bg-blue1 text-white rounded-full text-sm"
-                  >
-                    View File
-                  </button>
-                  <span v-if="formData.urinalysisReport" class="text-green-500"
-                    >Uploaded</span
-                  >
-                </div>
-              </div>
-
-              <!-- Radiologic Report -->
-              <div class="relative">
-                <input
-                  type="file"
-                  @change="handleFileChange('radiologicReport', $event)"
-                  accept=".pdf,.doc,.docx"
-                  class="hidden"
-                  ref="radiologicReportInput"
-                />
-                <div class="flex gap-2">
-                  <label
-                    @click="$refs.radiologicReportInput.click()"
-                    class="flex items-center gap-2 flex-1 px-4 py-2 rounded-md bg-graytint cursor-pointer hover:bg-gray-100"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                      />
-                    </svg>
-                    <span class="text-sm">
-                      {{
-                        formData.radiologicReport
-                          ? "Change file"
-                          : "Upload Radiologic Report"
-                      }}
-                    </span>
-                  </label>
-                  <button
-                    v-if="formData.radiologicReport"
-                    type="button"
-                    @click="viewFile('radiologicReport')"
-                    class="px-4 py-2 bg-blue1 text-white rounded-full text-sm"
-                  >
-                    View File
-                  </button>
-                  <span v-if="formData.radiologicReport" class="text-green-500"
-                    >Uploaded</span
-                  >
-                </div>
-              </div>
-
-              <!-- Hematology Report -->
-              <div class="relative">
-                <input
-                  type="file"
-                  @change="handleFileChange('hematologyReport', $event)"
-                  accept=".pdf,.doc,.docx"
-                  class="hidden"
-                  ref="hematologyReportInput"
-                />
-                <div class="flex gap-2">
-                  <label
-                    @click="$refs.hematologyReportInput.click()"
-                    class="flex items-center gap-2 flex-1 px-4 py-2 rounded-md bg-graytint cursor-pointer hover:bg-gray-100"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                      />
-                    </svg>
-                    <span class="text-sm">
-                      {{
-                        formData.hematologyReport
-                          ? "Change file"
-                          : "Upload Hematology Report"
-                      }}
-                    </span>
-                  </label>
-                  <button
-                    v-if="formData.hematologyReport"
-                    type="button"
-                    @click="viewFile('hematologyReport')"
-                    class="px-4 py-2 bg-blue1 text-white rounded-full text-sm"
-                  >
-                    View File
-                  </button>
-                  <span v-if="formData.hematologyReport" class="text-green-500"
-                    >Uploaded</span
-                  >
-                </div>
-              </div>
-
-              <!-- Drug Test Report -->
-              <div class="relative">
-                <input
-                  type="file"
-                  @change="handleFileChange('drugTestReport', $event)"
-                  accept=".pdf,.doc,.docx"
-                  class="hidden"
-                  ref="drugTestReportInput"
-                />
-                <div class="flex gap-2">
-                  <label
-                    @click="$refs.drugTestReportInput.click()"
-                    class="flex items-center gap-2 flex-1 px-4 py-2 rounded-md bg-graytint cursor-pointer hover:bg-gray-100"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                      />
-                    </svg>
-                    <span class="text-sm">
-                      {{
-                        formData.drugTestReport
-                          ? "Change file"
-                          : "Upload Drug Test Report"
-                      }}
-                    </span>
-                  </label>
-                  <button
-                    v-if="formData.drugTestReport"
-                    type="button"
-                    @click="viewFile('drugTestReport')"
-                    class="px-4 py-2 bg-blue1 text-white rounded-full text-sm"
-                  >
-                    View File
-                  </button>
-                  <span v-if="formData.drugTestReport" class="text-green-500"
-                    >Uploaded</span
-                  >
-                </div>
-              </div>
-
-              <!-- Dental Health Chart -->
-              <div class="relative">
-                <input
-                  type="file"
-                  @change="handleFileChange('dentalHealthChart', $event)"
-                  accept=".pdf,.doc,.docx"
-                  class="hidden"
-                  ref="dentalHealthChartInput"
-                />
-                <div class="flex gap-2">
-                  <label
-                    @click="$refs.dentalHealthChartInput.click()"
-                    class="flex items-center gap-2 flex-1 px-4 py-2 rounded-md bg-graytint cursor-pointer hover:bg-gray-100"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      class="h-5 w-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-                      />
-                    </svg>
-                    <span class="text-sm">
-                      {{
-                        formData.dentalHealthChart
-                          ? "Change file"
-                          : "Upload Dental Health Chart"
-                      }}
-                    </span>
-                  </label>
-                  <button
-                    v-if="formData.dentalHealthChart"
-                    type="button"
-                    @click="viewFile('dentalHealthChart')"
-                    class="px-4 py-2 bg-blue1 text-white rounded-full text-sm"
-                  >
-                    View File
-                  </button>
-                  <span v-if="formData.dentalHealthChart" class="text-green-500"
-                    >Uploaded</span
-                  >
-                </div>
+            <div class="space-y-2">
+              <div
+                v-for="(label, key) in documentLabels"
+                :key="key"
+                class="flex justify-between items-center p-3 bg-white rounded-lg hover:bg-gray-50"
+              >
+                <span class="text-sm">{{ label }}</span>
+                <button
+                  v-if="formData.documents[key]"
+                  @click="viewDocument(formData.documents[key])"
+                  class="text-blue1"
+                >
+                  <EyeIcon class="w-5 h-5" />
+                </button>
               </div>
             </div>
           </div>
-
-          <!-- Submit Button -->
-          <div class="flex justify-end mt-6">
-            <button
-              type="submit"
-              class="bg-blue1 text-white px-6 py-2 rounded-full"
-            >
-              {{ isEditing ? "Update" : "Add" }} Student
-            </button>
-          </div>
         </div>
-      </form>
+
+        <!-- Right side: Form -->
+        <div class="flex-1 overflow-y-scroll no-scrollbar pr-4">
+          <form @submit.prevent="submitForm" class="space-y-6">
+            <!-- Profile Image -->
+            <div v-if="!isEditing" class="flex justify-center mb-4">
+              <div class="relative">
+                <div class="w-24 h-24 rounded-full bg-blue1/10 overflow-hidden">
+                  <img
+                    v-if="imagePreview || formData.profileImage"
+                    :src="imagePreview || formData.profileImage"
+                    class="w-full h-full object-cover"
+                    alt="Profile Preview"
+                  />
+                </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  @change="handleImageChange"
+                  class="hidden"
+                  ref="fileInput"
+                />
+                <button
+                  type="button"
+                  @click="$refs.fileInput.click()"
+                  class="absolute bottom-0 right-0 bg-blue1 text-white p-2 rounded-full"
+                >
+                  <PencilIcon class="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            <!-- Personal Information -->
+            <div class="space-y-4">
+              <h3 class="font-satoshi-bold">Personal Information</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <input
+                  v-model="formData.personalInfo.studentId"
+                  placeholder="Student ID"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+                <input
+                  v-model="formData.personalInfo.lastName"
+                  placeholder="Last Name"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+                <input
+                  v-model="formData.personalInfo.firstName"
+                  placeholder="First Name"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+                <input
+                  v-model="formData.personalInfo.middleInitial"
+                  placeholder="Middle Initial"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                />
+                <input
+                  v-model="formData.personalInfo.age"
+                  placeholder="Age"
+                  type="number"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+                <select
+                  v-model="formData.personalInfo.sex"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                >
+                  <option value="">Select Sex</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+                <input
+                  v-model="formData.personalInfo.nationality"
+                  placeholder="Nationality"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+                <input
+                  v-model="formData.personalInfo.religion"
+                  placeholder="Religion"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+              </div>
+              <textarea
+                v-model="formData.personalInfo.address"
+                placeholder="Address"
+                class="w-full px-4 py-2 rounded-lg bg-graytint"
+                required
+              ></textarea>
+            </div>
+
+            <!-- Academic Information -->
+            <div class="space-y-4">
+              <h3 class="font-satoshi-bold">Academic Information</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <input
+                  v-model="formData.academicInfo.course"
+                  placeholder="Course"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+                <select
+                  v-model="formData.academicInfo.yearLevel"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                >
+                  <option value="">Select Year Level</option>
+                  <option v-for="year in yearOptions" :key="year" :value="year">
+                    {{ year }}
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Emergency Contact -->
+            <div class="space-y-4">
+              <h3 class="font-satoshi-bold">Emergency Contact</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <input
+                  v-model="formData.emergencyContact.guardianName"
+                  placeholder="Guardian Name"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+                <input
+                  v-model="formData.emergencyContact.guardianOccupation"
+                  placeholder="Guardian Occupation"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+                <input
+                  v-model="formData.emergencyContact.guardianContact"
+                  placeholder="Guardian Contact"
+                  class="px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+              </div>
+              <textarea
+                v-model="formData.emergencyContact.guardianAddress"
+                placeholder="Guardian Address"
+                class="w-full px-4 py-2 rounded-lg bg-graytint"
+                required
+              ></textarea>
+            </div>
+
+            <!-- Documents (only show in new mode) -->
+            <div v-if="!isEditing" class="space-y-4">
+              <h3 class="font-satoshi-bold">Required Documents</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <div
+                  v-for="(label, key) in documentLabels"
+                  :key="key"
+                  class="space-y-2"
+                >
+                  <label class="text-md text-text/80">{{ label }}</label>
+                  <div class="flex items-center gap-2">
+                    <input
+                      type="file"
+                      :accept="acceptedDocumentTypes"
+                      class="hidden"
+                      :ref="key"
+                      @change="(e) => handleDocumentChange(e, key)"
+                    />
+                    <button
+                      type="button"
+                      @click="$refs[key][0].click()"
+                      class="px-4 py-2 bg-blue1/10 text-blue1 rounded-lg flex-grow text-left text-sm"
+                    >
+                      {{
+                        formData.documents[key]
+                          ? "Change Document"
+                          : "Upload Document"
+                      }}
+                    </button>
+                    <button
+                      v-if="formData.documents[key]"
+                      type="button"
+                      @click="viewDocument(formData.documents[key])"
+                      class="p-2 text-blue1"
+                    >
+                      <EyeIcon class="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex justify-end gap-4">
+              <button
+                type="button"
+                @click="closeModal"
+                class="px-6 py-2 bg-gray-300 rounded-full hover:bg-gray-400 mb-8"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                class="mb-8 px-6 py-2 bg-blue1 text-white rounded-full hover:bg-blue-700"
+              >
+                {{ isEditing ? "Update" : "Save" }} Student
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
 import { ref, watch } from "vue";
-import { serverTimestamp } from "firebase/firestore";
-import { PencilIcon } from "@heroicons/vue/24/solid";
-import { useCRUD } from "@/utils/firebaseCRUD";
+import { XMarkIcon, PencilIcon, EyeIcon } from "@heroicons/vue/24/solid";
 import { handleImageUpload } from "@/utils/image-utils";
 import { handleDocumentUpload } from "@/utils/document-upload-utils";
+
+const yearOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
+
+const documentLabels = {
+  medicalCertificate: "Medical Certificate",
+  urinalysisReport: "Urinalysis Report",
+  radiologicReport: "Radiologic Report",
+  hematologyReport: "Hematology Report",
+  drugTestReport: "Drug Test Report",
+  dentalHealthChart: "Dental Health Chart",
+};
+
+const acceptedDocumentTypes =
+  ".pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
 
 export default {
   name: "StudentModal",
   components: {
+    XMarkIcon,
     PencilIcon,
+    EyeIcon,
   },
   props: {
     modelValue: Boolean,
     isEditing: Boolean,
-    initialData: {
+    initialFormData: {
       type: Object,
-      default: () => ({}),
+      required: true,
     },
   },
   emits: ["update:modelValue", "submit"],
   setup(props, { emit }) {
-    const { addItem, updateItem } = useCRUD("students");
-
+    const fileInput = ref(null);
+    const imagePreview = ref(null);
     const formData = ref({
-      studentId: "",
-      lastName: "",
-      firstName: "",
-      middleInitial: "",
-      age: "",
-      sex: "",
-      nationality: "",
-      address: "",
-      religion: "",
-      course: "",
-      yearLevel: "",
-      guardianName: "",
-      guardianOccupation: "",
-      guardianAddress: "",
-      guardianContact: "",
       profileImage: "",
-      medicalCertificate: "",
-      urinalysisReport: "",
-      radiologicReport: "",
-      hematologyReport: "",
-      drugTestReport: "",
-      dentalHealthChart: "",
+      personalInfo: {
+        studentId: "",
+        lastName: "",
+        firstName: "",
+        middleInitial: "",
+        age: "",
+        sex: "",
+        nationality: "",
+        address: "",
+        religion: "",
+      },
+      academicInfo: {
+        course: "",
+        yearLevel: "",
+      },
+      emergencyContact: {
+        guardianName: "",
+        guardianOccupation: "",
+        guardianAddress: "",
+        guardianContact: "",
+      },
+      documents: {
+        medicalCertificate: "",
+        urinalysisReport: "",
+        radiologicReport: "",
+        hematologyReport: "",
+        drugTestReport: "",
+        dentalHealthChart: "",
+      },
     });
 
-    const imagePreview = ref(null);
-
     watch(
-      () => props.initialData,
-      (newData) => {
-        formData.value = { ...newData };
-        imagePreview.value = newData.profileImage || null;
+      () => props.initialFormData,
+      (newVal) => {
+        formData.value = {
+          profileImage: newVal.profileImage || "",
+          personalInfo: {
+            studentId: newVal.studentId || "",
+            lastName: newVal.lastName || "",
+            firstName: newVal.firstName || "",
+            middleInitial: newVal.middleInitial || "",
+            age: newVal.age || "",
+            sex: newVal.sex || "",
+            nationality: newVal.nationality || "",
+            address: newVal.address || "",
+            religion: newVal.religion || "",
+          },
+          academicInfo: {
+            course: newVal.course || "",
+            yearLevel: newVal.yearLevel || "",
+          },
+          emergencyContact: {
+            guardianName: newVal.guardianName || "",
+            guardianOccupation: newVal.guardianOccupation || "",
+            guardianAddress: newVal.guardianAddress || "",
+            guardianContact: newVal.guardianContact || "",
+          },
+          documents: {
+            medicalCertificate: newVal.documents?.medicalCertificate || "",
+            urinalysisReport: newVal.documents?.urinalysisReport || "",
+            radiologicReport: newVal.documents?.radiologicReport || "",
+            hematologyReport: newVal.documents?.hematologyReport || "",
+            drugTestReport: newVal.documents?.drugTestReport || "",
+            dentalHealthChart: newVal.documents?.dentalHealthChart || "",
+          },
+        };
+        imagePreview.value = newVal.profileImage || null;
       },
-      { immediate: true }
+      { immediate: true, deep: true }
     );
 
     async function handleImageChange(event) {
@@ -579,44 +420,23 @@ export default {
       }
     }
 
-    async function handleFileChange(field, event) {
+    async function handleDocumentChange(event, documentKey) {
       const file = event.target.files[0];
       if (file) {
-        const fileData = await handleDocumentUpload(file);
-        formData.value[field] = fileData.data;
+        try {
+          const fileData = await handleDocumentUpload(file);
+          formData.value.documents[documentKey] = fileData.data;
+        } catch (error) {
+          console.error("Error uploading document:", error);
+        }
       }
     }
 
-    function viewFile(field) {
-      if (formData.value[field]) {
-        const newWindow = window.open();
-        newWindow.document.write(`
-          <iframe
-            src="${formData.value[field]}"
-            style="width:100%;height:100vh;border:none;"
-          ></iframe>
-        `);
-      }
-    }
-
-    async function submitForm() {
-      const studentData = {
-        ...formData.value,
-        id: formData.value.studentId,
-        updatedAt: serverTimestamp(),
-      };
-
-      if (!props.isEditing) {
-        studentData.createdAt = serverTimestamp();
-      }
-
-      if (props.isEditing) {
-        await updateItem(studentData);
-      } else {
-        await addItem(studentData);
-      }
-
-      emit("update:modelValue", false);
+    function viewDocument(documentData) {
+      const newWindow = window.open();
+      newWindow.document.write(`
+            <iframe src="${documentData}" style="width:100%;height:100vh;border:none;"></iframe>
+          `);
     }
 
     function closeModal() {
@@ -629,15 +449,30 @@ export default {
       }
     }
 
+    function submitForm() {
+      const submissionData = {
+        ...formData.value.personalInfo,
+        ...formData.value.academicInfo,
+        ...formData.value.emergencyContact,
+        profileImage: formData.value.profileImage,
+        documents: formData.value.documents,
+      };
+      emit("submit", submissionData);
+    }
+
     return {
+      fileInput,
       formData,
       imagePreview,
+      yearOptions,
+      documentLabels,
+      acceptedDocumentTypes,
       handleImageChange,
-      handleFileChange,
-      viewFile,
-      submitForm,
+      handleDocumentChange,
+      viewDocument,
       closeModal,
       handleBackgroundClick,
+      submitForm,
     };
   },
 };

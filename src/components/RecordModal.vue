@@ -1,11 +1,11 @@
 <template>
   <div
     v-if="modelValue"
-    class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+    class="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
     @click="handleBackgroundClick"
   >
     <div
-      class="bg-white rounded-2xl p-8 shadow-lg w-[800px] max-h-[90vh] overflow-y-auto"
+      class="bg-white rounded-2xl p-8 shadow-lg w-[800px] max-h-[90vh] overflow-hidden"
       @click.stop
     >
       <div class="flex justify-between items-center mb-6">
@@ -13,25 +13,13 @@
           {{ isEditing ? "Edit" : "New" }} Medical Record
         </h2>
         <button @click="closeModal" class="text-gray-500 hover:text-gray-700">
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <XMarkIcon class="w-6 h-6" />
         </button>
       </div>
 
-      <div class="flex gap-6">
+      <div class="flex gap-6 h-[calc(90vh-88px)]">
         <!-- Left side: Student Information -->
-        <div v-if="isEditing" class="w-96">
+        <div v-if="isEditing" class="w-96 flex-shrink-0">
           <div class="bg-graytint/50 rounded-xl p-4">
             <h3 class="font-satoshi-bold mb-4">Student Information</h3>
             <div class="space-y-3">
@@ -71,32 +59,38 @@
             </div>
           </div>
 
-          <!-- Lab Document Section -->
-          <div v-if="studentDetails.labTest" class="mt-4 rounded-xl p-4">
-            <h3 class="font-satoshi-bold mb-4">Lab Document</h3>
-            <button
-              @click="viewLabDocument"
-              class="w-full flex items-center justify-center gap-2 px-4 py-2 bg-blue1 text-white rounded-full text-sm"
-            >
-              <DocumentIcon class="size-5" />
-              View Lab Document
-            </button>
+          <!-- Documents Section -->
+          <div class="mt-4 bg-graytint/50 rounded-xl p-4">
+            <h3 class="font-satoshi-bold mb-4">Documents</h3>
+            <div class="space-y-2">
+              <div
+                v-for="doc in documents"
+                :key="doc.field"
+                class="flex justify-between items-center p-3 bg-white rounded-lg hover:bg-gray-50"
+              >
+                <span class="text-sm">{{ doc.label }}</span>
+                <button
+                  v-if="studentDetails.documents?.[doc.field]"
+                  @click="viewDocument(doc.field)"
+                  class="text-blue1"
+                >
+                  <EyeIcon class="w-5 h-5" />
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Right side: Record Form -->
-        <div class="flex-1">
+        <div class="flex-1 overflow-y-scroll no-scrollbar pr-4">
           <form @submit.prevent="submitForm" class="space-y-6">
             <!-- Student Selection (only show when adding new record) -->
             <div v-if="!isEditing" class="space-y-4">
-              <h3 class="font-satoshi-bold text-md mb-3">
-                Student Information
-              </h3>
+              <h3 class="font-satoshi-bold">Student Information</h3>
               <div>
-                <label class="block mb-1">Student</label>
                 <select
                   v-model="formData.student"
-                  class="px-4 py-2 rounded-lg bg-graytint w-full"
+                  class="w-full px-4 py-2 rounded-lg bg-graytint"
                   required
                 >
                   <option value="">Select Student</option>
@@ -113,119 +107,142 @@
               </div>
             </div>
 
-            <!-- Other Form Sections -->
-            <div
-              v-for="section in formSections"
-              :key="section.title"
-              class="space-y-4"
-            >
-              <h3 class="font-satoshi-bold text-md mb-3">
-                {{ section.title }}
-              </h3>
-              <div :class="section.grid">
-                <div
-                  v-for="field in section.fields"
-                  :key="field.name"
-                  :class="field.class || ''"
-                >
-                  <label class="block mb-1">{{ field.label }}</label>
-                  <template v-if="field.type === 'select'">
-                    <select
-                      v-model="formData[field.name]"
-                      class="px-4 py-2 rounded-lg bg-graytint w-full"
-                      required
-                    >
-                      <option
-                        v-for="opt in field.options"
-                        :key="opt"
-                        :value="opt"
-                      >
-                        {{ opt }}
-                      </option>
-                    </select>
-                  </template>
-                  <template v-else-if="field.type === 'textarea'">
-                    <textarea
-                      v-model="formData[field.name]"
-                      class="w-full px-4 py-2 rounded-xl bg-graytint min-h-[100px]"
-                      required
-                    ></textarea>
-                  </template>
-                  <template v-else-if="field.type === 'symptoms'">
-                    <div class="flex gap-2 flex-wrap">
-                      <input
-                        v-model="newSymptom"
-                        @keyup.enter="addSymptom"
-                        type="text"
-                        class="flex-1 px-4 py-2 rounded-lg bg-graytint"
-                        placeholder="Type and press enter to add"
-                      />
-                      <div
-                        v-for="(symptom, index) in formData.symptoms"
-                        :key="index"
-                        class="bg-blue1/10 px-3 py-1 rounded-lg flex items-center gap-2"
-                      >
-                        <span>{{ symptom }}</span>
-                        <button
-                          type="button"
-                          @click="removeSymptom(index)"
-                          class="text-red-500"
-                        >
-                          ×
-                        </button>
-                      </div>
-                    </div>
-                  </template>
-                  <template v-else-if="field.type === 'medications'">
-                    <div class="space-y-2">
-                      <div class="flex gap-2">
-                        <input
-                          v-model="newMedication.name"
-                          type="text"
-                          placeholder="Medicine name"
-                          class="flex-1 px-4 py-2 rounded-lg bg-graytint"
-                        />
-                        <input
-                          v-model="newMedication.dosage"
-                          type="text"
-                          placeholder="Dosage"
-                          class="w-32 px-4 py-2 rounded-lg bg-graytint"
-                        />
-                        <button
-                          type="button"
-                          @click="addMedication"
-                          class="px-4 py-2 bg-blue1 text-white rounded-full"
-                        >
-                          Add
-                        </button>
-                      </div>
-                      <div class="space-y-2">
-                        <div
-                          v-for="(med, index) in formData.medications"
-                          :key="index"
-                          class="flex items-center justify-between bg-blue1/10 px-4 py-2 rounded-lg"
-                        >
-                          <span>{{ med.name }} - {{ med.dosage }}</span>
-                          <button
-                            type="button"
-                            @click="removeMedication(index)"
-                            class="text-red-500"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-                  <template v-else>
-                    <input
-                      v-model="formData[field.name]"
-                      :type="field.type"
-                      class="w-full px-4 py-2 rounded-full bg-graytint"
-                      required
-                    />
-                  </template>
+            <!-- Vital Signs -->
+            <div class="space-y-4">
+              <h3 class="font-satoshi-bold">Vital Signs</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <input
+                  v-model="formData.temperature"
+                  placeholder="Temperature (°C)"
+                  class="w-full px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+                <input
+                  v-model="formData.bloodPressure"
+                  placeholder="Blood Pressure"
+                  class="w-full px-4 py-2 rounded-lg bg-graytint"
+                  required
+                />
+              </div>
+            </div>
+
+            <!-- Medical Information -->
+            <div class="space-y-4">
+              <h3 class="font-satoshi-bold">Medical Information</h3>
+              <input
+                v-model="formData.chiefComplaint"
+                placeholder="Chief Complaint"
+                class="w-full px-4 py-2 rounded-lg bg-graytint"
+                required
+              />
+
+              <!-- Symptoms -->
+              <div class="space-y-2">
+                <div class="flex gap-2">
+                  <input
+                    v-model="newSymptom"
+                    @keyup.enter="addSymptom"
+                    placeholder="Type symptoms and press enter"
+                    class="flex-1 px-4 py-2 rounded-lg bg-graytint"
+                  />
                 </div>
+                <div class="flex flex-wrap gap-2">
+                  <div
+                    v-for="(symptom, index) in formData.symptoms"
+                    :key="index"
+                    class="bg-blue1/10 px-3 py-1 rounded-lg flex items-center gap-2"
+                  >
+                    <span>{{ symptom }}</span>
+                    <button
+                      type="button"
+                      @click="removeSymptom(index)"
+                      class="text-red-500"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <textarea
+                v-model="formData.diagnosis"
+                placeholder="Diagnosis"
+                class="w-full px-4 py-2 rounded-lg bg-graytint min-h-[100px]"
+                required
+              ></textarea>
+
+              <textarea
+                v-model="formData.treatment"
+                placeholder="Treatment Plan"
+                class="w-full px-4 py-2 rounded-lg bg-graytint min-h-[100px]"
+                required
+              ></textarea>
+
+              <!-- Medications -->
+              <div class="space-y-2">
+                <div class="flex gap-2">
+                  <input
+                    v-model="newMedication.name"
+                    placeholder="Medicine name"
+                    class="flex-1 px-4 py-2 rounded-lg bg-graytint"
+                  />
+                  <input
+                    v-model="newMedication.dosage"
+                    placeholder="Dosage"
+                    class="w-32 px-4 py-2 rounded-lg bg-graytint"
+                  />
+                  <button
+                    type="button"
+                    @click="addMedication"
+                    class="px-4 py-2 bg-blue1 text-white rounded-full"
+                  >
+                    Add
+                  </button>
+                </div>
+                <div class="space-y-2">
+                  <div
+                    v-for="(med, index) in formData.medications"
+                    :key="index"
+                    class="flex items-center justify-between bg-blue1/10 px-4 py-2 rounded-lg"
+                  >
+                    <span>{{ med.name }} - {{ med.dosage }}</span>
+                    <button
+                      type="button"
+                      @click="removeMedication(index)"
+                      class="text-red-500"
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <textarea
+                v-model="formData.notes"
+                placeholder="Additional Notes"
+                class="w-full px-4 py-2 rounded-lg bg-graytint min-h-[100px]"
+              ></textarea>
+            </div>
+
+            <!-- Follow-up Information -->
+            <div class="space-y-4">
+              <h3 class="font-satoshi-bold">Follow-up Information</h3>
+              <div class="grid grid-cols-2 gap-4">
+                <input
+                  v-model="formData.followUpDate"
+                  type="date"
+                  class="w-full px-4 py-2 rounded-lg bg-graytint"
+                />
+                <select
+                  v-model="formData.status"
+                  class="w-full px-4 py-2 rounded-lg bg-graytint"
+                  required
+                >
+                  <option value="">Select Status</option>
+                  <option>Active</option>
+                  <option>Completed</option>
+                  <option>Follow-up Required</option>
+                </select>
               </div>
             </div>
 
@@ -234,13 +251,13 @@
               <button
                 type="button"
                 @click="closeModal"
-                class="px-4 py-2 bg-gray-300 rounded-full hover:bg-gray-400"
+                class="px-6 py-2 bg-gray-300 rounded-full hover:bg-gray-400 mb-8"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                class="px-4 py-2 bg-blue1 text-white rounded-full hover:bg-blue-700"
+                class="px-6 py-2 bg-blue1 text-white rounded-full hover:bg-blue-700 mb-8"
               >
                 {{ isEditing ? "Update" : "Save" }} Record
               </button>
@@ -253,50 +270,18 @@
 </template>
 
 <script>
-import { ref, computed, watch, onMounted } from "vue";
+import { ref, watch } from "vue";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import { useCRUD } from "@/utils/firebaseCRUD";
-import { DocumentIcon } from "@heroicons/vue/24/solid";
-
-const FORM_SECTIONS = [
-  {
-    title: "Vital Signs",
-    grid: "grid grid-cols-2 gap-4",
-    fields: [
-      { name: "temperature", label: "Temperature (°C)", type: "text" },
-      { name: "bloodPressure", label: "Blood Pressure", type: "text" },
-    ],
-  },
-  {
-    title: "Medical Information",
-    grid: "space-y-4",
-    fields: [
-      { name: "chiefComplaint", label: "Chief Complaint", type: "text" },
-      { name: "symptoms", label: "Symptoms", type: "symptoms" },
-      { name: "diagnosis", label: "Diagnosis", type: "textarea" },
-      { name: "treatment", label: "Treatment Plan", type: "textarea" },
-      { name: "medications", label: "Medications", type: "medications" },
-      { name: "notes", label: "Additional Notes", type: "textarea" },
-    ],
-  },
-  {
-    title: "Follow-up Information",
-    grid: "grid grid-cols-2 gap-4",
-    fields: [
-      { name: "followUpDate", label: "Follow-up Date", type: "date" },
-      {
-        name: "status",
-        label: "Status",
-        type: "select",
-        options: ["Active", "Completed", "Follow-up Required"],
-      },
-    ],
-  },
-];
+import { XMarkIcon, EyeIcon } from "@heroicons/vue/24/solid";
 
 export default {
   name: "RecordModal",
+  components: {
+    XMarkIcon,
+    EyeIcon,
+  },
   props: {
     modelValue: Boolean,
     isEditing: Boolean,
@@ -317,7 +302,14 @@ export default {
     const newMedication = ref({ name: "", dosage: "" });
     const studentDetails = ref({});
 
-    const formSections = computed(() => FORM_SECTIONS);
+    const documents = [
+      { field: "medicalCertificate", label: "Medical Certificate" },
+      { field: "urinalysisReport", label: "Urinalysis Report" },
+      { field: "radiologicReport", label: "Radiologic Report" },
+      { field: "hematologyReport", label: "Hematology Report" },
+      { field: "drugTestReport", label: "Drug Test Report" },
+      { field: "dentalHealthChart", label: "Dental Health Chart" },
+    ];
 
     watch(
       () => props.initialFormData,
@@ -346,7 +338,7 @@ export default {
           studentDetails.value = studentSnapshot.docs[0].data();
         }
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching student data:", error);
       }
     }
 
@@ -385,6 +377,15 @@ export default {
       formData.value.medications.splice(index, 1);
     }
 
+    function viewDocument(field) {
+      if (studentDetails.value.documents?.[field]) {
+        const newWindow = window.open();
+        newWindow.document.write(`
+          <iframe src="${studentDetails.value.documents[field]}" style="width:100%;height:100vh;border:none;"></iframe>
+        `);
+      }
+    }
+
     function closeModal() {
       formData.value = {};
       studentDetails.value = {};
@@ -396,24 +397,12 @@ export default {
         closeModal();
       }
     }
-    function viewLabDocument() {
-      if (studentDetails.value.labTest) {
-        const newWindow = window.open();
-        newWindow.document.write(`
-      <iframe 
-        src="${studentDetails.value.labTest}" 
-        style="width:100%;height:100vh;border:none;"
-      ></iframe>
-    `);
-      }
-    }
 
     async function submitForm() {
       if (!formData.value.date) {
         formData.value.date = new Date().toISOString().split("T")[0];
       }
 
-      // Generate unique ID if not exists
       if (!formData.value.id) {
         formData.value.id = `record_${Date.now()}`;
       }
@@ -434,17 +423,17 @@ export default {
     return {
       formData,
       studentDetails,
-      formSections,
+      documents,
       newSymptom,
       newMedication,
       addSymptom,
       removeSymptom,
       addMedication,
       removeMedication,
+      viewDocument,
       closeModal,
       handleBackgroundClick,
       submitForm,
-      viewLabDocument,
     };
   },
 };
