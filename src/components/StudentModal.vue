@@ -5,7 +5,7 @@
     @click="handleBackgroundClick"
   >
     <div
-      class="bg-white rounded-2xl p-8 shadow-lg w-[800px] h-[90vh]"
+      class="bg-white rounded-2xl p-8 shadow-lg w-[700px] h-[90vh]"
       @click.stop
     >
       <div class="flex justify-between items-center mb-6">
@@ -18,9 +18,8 @@
       </div>
 
       <div class="flex gap-6 h-[calc(90vh-88px)]">
-        <!-- Left side: Student Information Display (when editing) -->
-        <div v-if="isEditing" class="w-96 flex-shrink-0">
-          <div class="bg-graytint/50 rounded-xl p-4">
+        <div v-if="isEditing" class="w-60 flex-shrink-0 flex flex-col">
+          <div class="bg-graytint/50 rounded-xl p-4 sticky top-0 z-10">
             <h3 class="font-satoshi-bold mb-4">Student Information</h3>
             <div class="space-y-3">
               <div class="bg-white p-3 rounded-lg shadow-sm">
@@ -63,9 +62,12 @@
             </div>
           </div>
 
-          <!-- Documents Section -->
-          <div class="mt-4 bg-graytint/50 rounded-xl p-4">
-            <h3 class="font-satoshi-bold mb-4">Documents</h3>
+          <div
+            class="mt-4 bg-graytint/50 rounded-xl p-4 overflow-y-scroll no-scrollbar flex-grow"
+          >
+            <h3 class="font-satoshi-bold mb-4 sticky top-0 bg-graytint/50 z-10">
+              Documents
+            </h3>
             <div class="space-y-2">
               <div
                 v-for="(label, key) in documentLabels"
@@ -85,10 +87,8 @@
           </div>
         </div>
 
-        <!-- Right side: Form -->
         <div class="flex-1 overflow-y-scroll no-scrollbar pr-4">
           <form @submit.prevent="submitForm" class="space-y-6">
-            <!-- Profile Image -->
             <div v-if="!isEditing" class="flex justify-center mb-4">
               <div class="relative">
                 <div class="w-24 h-24 rounded-full bg-blue1/10 overflow-hidden">
@@ -116,7 +116,6 @@
               </div>
             </div>
 
-            <!-- Personal Information -->
             <div class="space-y-4">
               <h3 class="font-satoshi-bold">Personal Information</h3>
               <div class="grid grid-cols-2 gap-4">
@@ -180,7 +179,6 @@
               ></textarea>
             </div>
 
-            <!-- Academic Information -->
             <div class="space-y-4">
               <h3 class="font-satoshi-bold">Academic Information</h3>
               <div class="grid grid-cols-2 gap-4">
@@ -203,7 +201,6 @@
               </div>
             </div>
 
-            <!-- Emergency Contact -->
             <div class="space-y-4">
               <h3 class="font-satoshi-bold">Emergency Contact</h3>
               <div class="grid grid-cols-2 gap-4">
@@ -234,7 +231,6 @@
               ></textarea>
             </div>
 
-            <!-- Documents (only show in new mode) -->
             <div v-if="!isEditing" class="space-y-4">
               <h3 class="font-satoshi-bold">Required Documents</h3>
               <div class="grid grid-cols-2 gap-4">
@@ -246,6 +242,7 @@
                   <label class="text-md text-text/80">{{ label }}</label>
                   <div class="flex items-center gap-2">
                     <input
+                      v-if="key !== 'healthExam'"
                       type="file"
                       :accept="acceptedDocumentTypes"
                       class="hidden"
@@ -253,6 +250,7 @@
                       @change="(e) => handleDocumentChange(e, key)"
                     />
                     <button
+                      v-if="key !== 'healthExam'"
                       type="button"
                       @click="$refs[key][0].click()"
                       class="px-4 py-2 bg-blue1/10 text-blue1 rounded-lg flex-grow text-left text-sm"
@@ -262,6 +260,14 @@
                           ? "Change Document"
                           : "Upload Document"
                       }}
+                    </button>
+                    <button
+                      v-if="key === 'healthExam'"
+                      type="button"
+                      @click="showHealthExamModal = true"
+                      class="px-4 py-2 bg-blue1 text-white rounded-lg"
+                    >
+                      Fill Health Form
                     </button>
                     <button
                       v-if="formData.documents[key]"
@@ -276,7 +282,6 @@
               </div>
             </div>
 
-            <!-- Form Actions -->
             <div class="flex justify-end gap-4">
               <button
                 type="button"
@@ -297,13 +302,31 @@
       </div>
     </div>
   </div>
+
+  <div
+    v-if="showHealthExamModal"
+    class="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
+  >
+    <div class="bg-white rounded-2xl p-8 w-[50vw] h-[90vh] overflow-hidden">
+      <HealthExamForm :onSubmit="handleHealthExamSubmit" />
+      <button
+        @click="showHealthExamModal = false"
+        class="absolute top-4 right-4 text-gray-500"
+      >
+        <XMarkIcon class="w-6 h-6" />
+      </button>
+    </div>
+  </div>
 </template>
 
 <script>
 import { ref, watch } from "vue";
+import { serverTimestamp } from "firebase/firestore";
 import { XMarkIcon, PencilIcon, EyeIcon } from "@heroicons/vue/24/solid";
 import { handleImageUpload } from "@/utils/image-utils";
 import { handleDocumentUpload } from "@/utils/document-upload-utils";
+import { useCRUD } from "@/utils/firebaseCRUD";
+import HealthExamForm from "./HealthExamForm.vue";
 
 const yearOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 
@@ -314,6 +337,7 @@ const documentLabels = {
   hematologyReport: "Hematology Report",
   drugTestReport: "Drug Test Report",
   dentalHealthChart: "Dental Health Chart",
+  healthExam: "Health Examination Form",
 };
 
 const acceptedDocumentTypes =
@@ -325,6 +349,7 @@ export default {
     XMarkIcon,
     PencilIcon,
     EyeIcon,
+    HealthExamForm,
   },
   props: {
     modelValue: Boolean,
@@ -336,8 +361,10 @@ export default {
   },
   emits: ["update:modelValue", "submit"],
   setup(props, { emit }) {
+    const { addItem, updateItem } = useCRUD("students");
     const fileInput = ref(null);
     const imagePreview = ref(null);
+    const showHealthExamModal = ref(false);
     const formData = ref({
       profileImage: "",
       personalInfo: {
@@ -368,6 +395,7 @@ export default {
         hematologyReport: "",
         drugTestReport: "",
         dentalHealthChart: "",
+        healthExam: "",
       },
     });
 
@@ -404,6 +432,7 @@ export default {
             hematologyReport: newVal.documents?.hematologyReport || "",
             drugTestReport: newVal.documents?.drugTestReport || "",
             dentalHealthChart: newVal.documents?.dentalHealthChart || "",
+            healthExam: newVal.documents?.healthExam || "",
           },
         };
         imagePreview.value = newVal.profileImage || null;
@@ -432,11 +461,17 @@ export default {
       }
     }
 
+    async function handleHealthExamSubmit(pdfData) {
+      // pdfData is already in base64 format, just save it directly
+      formData.value.documents.healthExam = pdfData;
+      showHealthExamModal.value = false;
+    }
+
     function viewDocument(documentData) {
       const newWindow = window.open();
       newWindow.document.write(`
-            <iframe src="${documentData}" style="width:100%;height:100vh;border:none;"></iframe>
-          `);
+      <iframe src="${documentData}" style="width:100%;height:100vh;border:none;"></iframe>
+    `);
     }
 
     function closeModal() {
@@ -449,15 +484,25 @@ export default {
       }
     }
 
-    function submitForm() {
+    async function submitForm() {
       const submissionData = {
         ...formData.value.personalInfo,
         ...formData.value.academicInfo,
         ...formData.value.emergencyContact,
         profileImage: formData.value.profileImage,
         documents: formData.value.documents,
+        id: formData.value.personalInfo.studentId,
+        updatedAt: serverTimestamp(),
       };
-      emit("submit", submissionData);
+
+      if (!props.isEditing) {
+        submissionData.createdAt = serverTimestamp();
+        await addItem(submissionData);
+      } else {
+        await updateItem(submissionData);
+      }
+
+      closeModal();
     }
 
     return {
@@ -467,12 +512,14 @@ export default {
       yearOptions,
       documentLabels,
       acceptedDocumentTypes,
+      showHealthExamModal,
       handleImageChange,
       handleDocumentChange,
       viewDocument,
       closeModal,
       handleBackgroundClick,
       submitForm,
+      handleHealthExamSubmit,
     };
   },
 };

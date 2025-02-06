@@ -20,7 +20,17 @@
         </button>
       </div>
 
-      <div class="space-y-4">
+      <!-- Loading State -->
+      <div v-if="loading" class="flex justify-center items-center py-8">
+        <intersecting-circles-spinner
+          :animation-duration="1200"
+          :size="70"
+          color="#3f73ce"
+        />
+      </div>
+
+      <!-- Admin List -->
+      <div v-else class="space-y-4">
         <div
           v-for="admin in items"
           :key="admin.adminId"
@@ -51,7 +61,7 @@
             class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end"
           >
             <span class="text-sm text-gray-400">
-              Last Login: {{ admin.lastLogin || "Never" }}
+              Last Login: {{ formatLastLogin(admin.lastLogin) }}
             </span>
             <button
               @click="openAdminModal(admin)"
@@ -64,7 +74,7 @@
       </div>
     </div>
 
-    <!-- Admin Modal (remains the same as before) -->
+    <!-- Admin Modal -->
     <div
       v-if="showAdminModal"
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
@@ -173,11 +183,13 @@ import { useCRUD } from "@/utils/firebaseCRUD";
 import { serverTimestamp } from "firebase/firestore";
 import { PencilIcon } from "@heroicons/vue/24/solid";
 import { handleImageUpload } from "@/utils/image-utils";
+import { IntersectingCirclesSpinner } from "epic-spinners";
 
 export default {
   name: "Settings",
   components: {
     PencilIcon,
+    IntersectingCirclesSpinner,
   },
   setup() {
     const {
@@ -201,7 +213,7 @@ export default {
   },
   data() {
     return {
-      admins: [], // Keep this for compatibility
+      admins: [],
       showAdminModal: false,
       editingAdmin: null,
       adminForm: {
@@ -228,13 +240,28 @@ export default {
     items: {
       immediate: true,
       handler(newItems) {
-        this.admins = newItems; // Sync items with admins to maintain original template compatibility
+        this.admins = newItems;
       },
     },
   },
   methods: {
+    formatLastLogin(timestamp) {
+      if (!timestamp) return "Never";
+
+      // Convert Firebase timestamp to JS Date
+      const date = timestamp.toDate();
+
+      // Format the date
+      return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(date);
+    },
     async fetchAdmins() {
-      await this.fetchItems(); // Use the CRUD hook's fetch method
+      await this.fetchItems();
     },
     openAdminModal(admin) {
       this.editingAdmin = admin;
@@ -264,7 +291,7 @@ export default {
     },
     async saveAdmin() {
       const adminData = {
-        id: this.adminForm.adminId, // Use id for Firebase doc ID
+        id: this.adminForm.adminId,
         adminId: this.adminForm.adminId,
         fullName: this.adminForm.fullName,
         email: this.adminForm.email,

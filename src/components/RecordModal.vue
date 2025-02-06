@@ -5,7 +5,7 @@
     @click="handleBackgroundClick"
   >
     <div
-      class="bg-white rounded-2xl p-8 shadow-lg w-[800px] max-h-[90vh] overflow-hidden"
+      class="bg-white rounded-2xl p-8 shadow-lg w-[750px] max-h-[90vh] overflow-hidden"
       @click.stop
     >
       <div class="flex justify-between items-center mb-6">
@@ -19,7 +19,7 @@
 
       <div class="flex gap-6 h-[calc(90vh-88px)]">
         <!-- Left side: Student Information -->
-        <div v-if="isEditing" class="w-96 flex-shrink-0">
+        <div v-if="isEditing" class="w-60 flex-shrink-0">
           <div class="bg-graytint/50 rounded-xl p-4">
             <h3 class="font-satoshi-bold mb-4">Student Information</h3>
             <div class="space-y-3">
