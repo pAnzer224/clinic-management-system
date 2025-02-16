@@ -50,16 +50,11 @@
             </div>
             <div>
               <label class="block mb-1">Category</label>
-              <select
+              <Dropdown
                 v-model="formData.category"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              >
-                <option value="">Select Category</option>
-                <option v-for="category in categories" :key="category">
-                  {{ category }}
-                </option>
-              </select>
+                :options="categoryOptions"
+                class="w-full"
+              />
             </div>
             <div>
               <label class="block mb-1">Dosage Form</label>
@@ -178,6 +173,7 @@
 
 <script>
 import { ref, computed, watch } from "vue";
+import Dropdown from "@/components/Dropdown.vue";
 
 const categories = [
   "Analgesics",
@@ -191,6 +187,9 @@ const categories = [
 
 export default {
   name: "MedicationModal",
+  components: {
+    Dropdown,
+  },
   props: {
     modelValue: Boolean,
     isEditing: Boolean,
@@ -207,6 +206,13 @@ export default {
     const submitButtonText = computed(() => {
       if (props.isStockAdjustment) return "Update Stock";
       return props.isEditing ? "Update Medication" : "Add Medication";
+    });
+
+    const categoryOptions = computed(() => {
+      return [
+        { value: "", label: "Select Category" },
+        ...categories.map((category) => ({ value: category, label: category })),
+      ];
     });
 
     watch(
@@ -233,7 +239,7 @@ export default {
 
     return {
       formData,
-      categories,
+      categoryOptions,
       submitButtonText,
       closeModal,
       handleBackgroundClick,

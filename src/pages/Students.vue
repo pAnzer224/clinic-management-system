@@ -1,33 +1,36 @@
 <template>
   <main class="flex-1 space-y-6">
-    <!-- Header -->
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-satoshi-bold text-text">Student Management</h1>
-      <button @click="add" class="bg-blue1 text-white px-4 py-2 rounded-full">
+      <button
+        @click="add"
+        class="bg-blue1 hover:bg-blue1/80 text-white px-4 py-2 rounded-full text-[15px]"
+      >
         Add Student
       </button>
     </div>
 
-    <!-- Main Content -->
     <div class="grid grid-cols-1 gap-4">
       <div class="bg-white rounded-2xl px-8 pt-8 pb-2 shadow-sm">
-        <div class="flex gap-4 mb-6 text-[13px]">
-          <input
-            type="search"
-            v-model="searchQuery"
-            placeholder="Search students..."
-            class="px-4 py-2 rounded-full bg-graytint/40 border border-text/20"
-          />
-          <select
+        <div class="flex gap-4 mb-6 text-[13px] relative">
+          <div class="relative w-80 flex-1">
+            <MagnifyingGlassIcon
+              class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
+            />
+            <input
+              type="search"
+              v-model="searchQuery"
+              placeholder="Search by student name or ID..."
+              class="pl-10 px-4 py-2 rounded-full bg-graytint/40 border border-text/20 focus:ring-1 focus:ring-blue1/50 focus:outline-none"
+            />
+          </div>
+          <Dropdown
             v-model="filterYear"
-            class="px-4 py-2 rounded-full bg-graytint"
-          >
-            <option value="">All Years</option>
-            <option v-for="year in YEAR_OPTIONS" :key="year">{{ year }}</option>
-          </select>
+            :options="yearFilterOptions"
+            class="w-40"
+          />
         </div>
 
-        <!-- Loading State -->
         <div v-if="loading" class="flex justify-center items-center py-8">
           <intersecting-circles-spinner
             :animation-duration="1200"
@@ -36,9 +39,7 @@
           />
         </div>
 
-        <!-- Table Container with Fixed Header -->
         <div v-else class="relative">
-          <!-- Fixed Header -->
           <div class="sticky top-0 bg-white z-10">
             <table class="w-full table-fixed">
               <thead>
@@ -51,15 +52,12 @@
                 </tr>
               </thead>
             </table>
-            <!-- Sticky border -->
             <div
               class="absolute bottom-0 left-0 right-0 border-t border-graytint"
             ></div>
           </div>
 
-          <!-- Table wrapper with relative positioning for gradient -->
           <div class="relative">
-            <!-- Scrollable Body -->
             <div
               class="min-h-[calc(100vh-335px)] max-h-[calc(100vh-335px)] overflow-y-scroll no-scrollbar"
             >
@@ -100,7 +98,7 @@
                         @click="editStudent(student)"
                         class="text-blue2/90 hover:text-blue1"
                       >
-                        <EyeIcon class="size-5 inline" />
+                        <EyeIcon class="h-5 w-5 inline" />
                       </button>
                       <button
                         @click="deleteStudent(student.studentId)"
@@ -113,7 +111,6 @@
                 </tbody>
               </table>
             </div>
-            <!-- Gradient overlay -->
             <div
               class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white to-transparent pointer-events-none"
             ></div>
@@ -122,7 +119,6 @@
       </div>
     </div>
 
-    <!-- Student Modal -->
     <StudentModal
       v-model="showModal"
       :is-editing="isEditing"
@@ -133,13 +129,18 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
-import { EyeIcon, TrashIcon } from "@heroicons/vue/24/outline";
+import {
+  EyeIcon,
+  TrashIcon,
+  MagnifyingGlassIcon,
+} from "@heroicons/vue/24/outline";
 import StudentModal from "@/components/StudentModal.vue";
 import { useCRUD } from "@/utils/firebaseCRUD";
 import { serverTimestamp } from "firebase/firestore";
 import { IntersectingCirclesSpinner } from "epic-spinners";
+import Dropdown from "@/components/Dropdown.vue";
 
 const YEAR_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 const TABLE_HEADERS = ["Student ID", "Name", "Course", "Year Level", "Actions"];
@@ -170,7 +171,9 @@ export default {
     StudentModal,
     EyeIcon,
     TrashIcon,
+    MagnifyingGlassIcon,
     IntersectingCirclesSpinner,
+    Dropdown,
   },
   setup() {
     const route = useRoute();
@@ -178,11 +181,11 @@ export default {
       items: students,
       loading,
       error,
-      fetchItems: fetchStudents,
+      listenToChanges,
+      stopListening,
       addItem,
       updateItem,
       deleteItem,
-      getItem,
     } = useCRUD("students");
 
     const searchQuery = ref("");
@@ -190,6 +193,13 @@ export default {
     const showModal = ref(false);
     const isEditing = ref(false);
     const formData = ref({ ...INITIAL_FORM });
+
+    const yearFilterOptions = computed(() => {
+      return [
+        { value: "", label: "All Years" },
+        ...YEAR_OPTIONS.map((year) => ({ value: year, label: year })),
+      ];
+    });
 
     const filteredStudents = computed(() => {
       return students.value.filter((student) => {
@@ -200,7 +210,8 @@ export default {
           matchesYear &&
           (!searchQuery.value ||
             student.lastName.toLowerCase().includes(searchLower) ||
-            student.firstName.toLowerCase().includes(searchLower))
+            student.firstName.toLowerCase().includes(searchLower) ||
+            student.studentId.toLowerCase().includes(searchLower))
         );
       });
     });
@@ -209,7 +220,7 @@ export default {
       if (route.query.openModal === "true") {
         add();
       }
-      fetchStudents();
+      listenToChanges();
     });
 
     function add() {
@@ -225,10 +236,12 @@ export default {
     }
 
     async function deleteStudent(studentId) {
-      try {
-        await deleteItem(studentId);
-      } catch (error) {
-        console.error("Error deleting student:", error);
+      if (confirm("Are you sure you want to delete this student?")) {
+        try {
+          await deleteItem(studentId);
+        } catch (error) {
+          console.error("Error deleting student:", error);
+        }
       }
     }
 
@@ -265,6 +278,7 @@ export default {
       isEditing,
       formData,
       filteredStudents,
+      yearFilterOptions,
       YEAR_OPTIONS,
       TABLE_HEADERS,
       add,

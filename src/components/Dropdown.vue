@@ -29,7 +29,7 @@
         <div
           v-for="option in options"
           :key="option.value"
-          @click="selectOption(option)"
+          @click.stop="selectOption(option)"
           class="px-5 py-2 text-text hover:bg-blue1/10 cursor-pointer transition-colors duration-150 last:border-b-0 border-b border-text/10"
           :class="{
             'bg-blue1/10': modelValue === option.value,
@@ -49,17 +49,22 @@ import { ChevronDownIcon } from "@heroicons/vue/24/outline";
 
 const props = defineProps({
   modelValue: {
-    type: String,
+    type: [String, Number, Boolean, Object],
     default: "",
   },
   options: {
     type: Array,
-    default: () => [
-      { value: "", label: "All Time" },
-      { value: "today", label: "Today" },
-      { value: "week", label: "This Week" },
-      { value: "month", label: "This Month" },
-    ],
+    required: true,
+    validator: (value) => {
+      return value.every(
+        (option) =>
+          option.hasOwnProperty("value") && option.hasOwnProperty("label")
+      );
+    },
+  },
+  placeholder: {
+    type: String,
+    default: "Select an option",
   },
 });
 
@@ -93,6 +98,6 @@ const displayValue = computed(() => {
   const selectedOption = props.options.find(
     (opt) => opt.value === props.modelValue
   );
-  return selectedOption ? selectedOption.label : "Select an option";
+  return selectedOption ? selectedOption.label : props.placeholder;
 });
 </script>

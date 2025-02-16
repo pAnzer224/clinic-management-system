@@ -12,14 +12,17 @@
           class="w-8 h-8 rounded-full bg-blue1/10 overflow-hidden flex-shrink-0"
         >
           <img
-            v-if="currentAdmin.profileImage"
-            :src="currentAdmin.profileImage"
+            v-if="currentUser.profileImage"
+            :src="currentUser.profileImage"
             class="w-full h-full object-cover"
             alt="Profile"
           />
         </div>
-        <span class="text-[13px] font-satoshi-medium text-text truncate">
-          {{ currentAdmin.fullName }}
+        <span class="text-[13px] font-satoshi-medium text-text">
+          {{ currentUser.fullName }}
+        </span>
+        <span class="text-[10px] bg-blue1/10 text-blue1 px-2 py-1 rounded-full">
+          {{ currentUser.role }}
         </span>
 
         <div class="relative ml-auto">
@@ -47,7 +50,7 @@
 
       <nav class="space-y-4">
         <router-link
-          v-for="item in navigation"
+          v-for="item in filteredNavigation"
           :key="item.path"
           :to="item.path"
           class="group w-full flex items-center gap-3 p-2 rounded-full text-md transition-colors font-satoshi-medium"
@@ -71,7 +74,7 @@
     >
       <div class="flex justify-between items-center px-6 py-4">
         <router-link
-          v-for="item in navigation"
+          v-for="item in filteredNavigation"
           :key="item.path"
           :to="item.path"
           class="flex flex-col items-center relative pt-1"
@@ -96,7 +99,6 @@
 </template>
 
 <script>
-// Script section remains unchanged
 import {
   HomeIcon,
   UsersIcon,
@@ -108,7 +110,7 @@ import {
   ArrowRightOnRectangleIcon,
 } from "@heroicons/vue/24/solid";
 import { useRouter } from "vue-router";
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 
 export default {
   name: "Sidebar",
@@ -125,17 +127,17 @@ export default {
   setup() {
     const router = useRouter();
     const isMenuOpen = ref(false);
-    const currentAdmin = ref({});
+    const currentUser = ref({});
 
     onMounted(() => {
-      const adminData = localStorage.getItem("currentAdmin");
-      if (adminData) {
-        currentAdmin.value = JSON.parse(adminData);
+      const userData = localStorage.getItem("currentUser");
+      if (userData) {
+        currentUser.value = JSON.parse(userData);
       }
     });
 
     const handleLogout = () => {
-      localStorage.removeItem("currentAdmin");
+      localStorage.removeItem("currentUser");
       isMenuOpen.value = false;
       router.push("/login");
     };
@@ -143,7 +145,7 @@ export default {
     return {
       isMenuOpen,
       handleLogout,
-      currentAdmin,
+      currentUser,
     };
   },
   data() {
@@ -154,9 +156,24 @@ export default {
         { name: "Appointments", path: "/appointments", icon: "CalendarIcon" },
         { name: "Records", path: "/records", icon: "DocumentTextIcon" },
         { name: "Alerts", path: "/alerts", icon: "BellIcon" },
-        { name: "Settings", path: "/settings", icon: "CogIcon" },
+        {
+          name: "Settings",
+          path: "/settings",
+          icon: "CogIcon",
+          adminOnly: true,
+        },
       ],
     };
+  },
+  computed: {
+    filteredNavigation() {
+      return this.navigation.filter((item) => {
+        if (item.adminOnly) {
+          return this.currentUser.role === "admin";
+        }
+        return true;
+      });
+    },
   },
 };
 </script>

@@ -20,24 +20,16 @@
           placeholder="Search medications..."
           class="px-4 py-2 rounded-full bg-graytint/40 border border-text/20"
         />
-        <select
+        <Dropdown
           v-model="filterCategory"
-          class="px-4 py-2 rounded-full bg-graytint"
-        >
-          <option value="">All Categories</option>
-          <option v-for="category in CATEGORIES" :key="category">
-            {{ category }}
-          </option>
-        </select>
-        <select
+          :options="categoryOptions"
+          class="w-40"
+        />
+        <Dropdown
           v-model="filterStatus"
-          class="px-4 py-2 rounded-full bg-graytint"
-        >
-          <option value="">All Stock Status</option>
-          <option value="In Stock">In Stock</option>
-          <option value="Low Stock">Low Stock</option>
-          <option value="Out of Stock">Out of Stock</option>
-        </select>
+          :options="statusOptions"
+          class="w-40"
+        />
       </div>
 
       <!-- Medications Table -->
@@ -132,6 +124,7 @@ import {
   ArrowsUpDownIcon,
 } from "@heroicons/vue/24/outline";
 import MedicationsModal from "@/components/MedicationsModal.vue";
+import Dropdown from "@/components/Dropdown.vue";
 
 const TABLE_HEADERS = [
   "Name",
@@ -175,6 +168,7 @@ export default {
     PencilIcon,
     TrashIcon,
     ArrowsUpDownIcon,
+    Dropdown,
   },
   setup() {
     const medications = ref([]);
@@ -185,6 +179,22 @@ export default {
     const isEditing = ref(false);
     const isStockAdjustment = ref(false);
     const formData = ref({ ...INITIAL_FORM });
+
+    const categoryOptions = computed(() => {
+      return [
+        { value: "", label: "All Categories" },
+        ...CATEGORIES.map((category) => ({ value: category, label: category })),
+      ];
+    });
+
+    const statusOptions = computed(() => {
+      return [
+        { value: "", label: "All Stock Status" },
+        { value: "In Stock", label: "In Stock" },
+        { value: "Low Stock", label: "Low Stock" },
+        { value: "Out of Stock", label: "Out of Stock" },
+      ];
+    });
 
     const filteredMedications = computed(() => {
       return medications.value.filter((med) => {
@@ -273,7 +283,8 @@ export default {
       isStockAdjustment,
       formData,
       filteredMedications,
-      CATEGORIES,
+      categoryOptions,
+      statusOptions,
       TABLE_HEADERS,
       showAddMedication,
       editMedication,

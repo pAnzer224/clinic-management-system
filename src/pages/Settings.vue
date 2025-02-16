@@ -1,9 +1,10 @@
 <template>
-  <main class="flex-1 space-y-6">
+  <main v-if="currentUser.role === 'admin'" class="flex-1 space-y-6">
     <h1 class="text-2xl font-satoshi-bold text-text px-4 sm:px-6 lg:px-0">
-      Admin Settings
+      User Management
     </h1>
 
+    <!-- Admin Management Section -->
     <div
       class="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-sm mx-4 sm:mx-6 lg:mx-0"
     >
@@ -12,16 +13,16 @@
       >
         <h2 class="text-md font-satoshi-medium text-text">Admin Management</h2>
         <button
-          @click="openAdminModal(null)"
+          @click="openModal('admin', null)"
           :disabled="admins.length >= 3"
-          class="bg-blue1 text-white px-4 py-2 rounded-full w-full sm:w-auto"
+          class="bg-blue1 text-white px-4 py-2 rounded-full w-full sm:w-auto disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Add Admin
         </button>
       </div>
 
       <!-- Loading State -->
-      <div v-if="loading" class="flex justify-center items-center py-8">
+      <div v-if="loadingAdmins" class="flex justify-center items-center py-8">
         <intersecting-circles-spinner
           :animation-duration="1200"
           :size="70"
@@ -32,7 +33,7 @@
       <!-- Admin List -->
       <div v-else class="space-y-4">
         <div
-          v-for="admin in items"
+          v-for="admin in admins"
           :key="admin.adminId"
           class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-gray-50 rounded-lg gap-4 sm:gap-0"
         >
@@ -55,6 +56,9 @@
                 {{ admin.email }}
               </p>
               <p class="text-md text-text/50">ID: {{ admin.adminId }}</p>
+              <p class="text-sm text-gray-400" v-if="admin.createdAt">
+                Created: {{ formatTimestamp(admin.createdAt) }}
+              </p>
             </div>
           </div>
           <div
@@ -63,27 +67,117 @@
             <span class="text-sm text-gray-400">
               Last Login: {{ formatLastLogin(admin.lastLogin) }}
             </span>
-            <button
-              @click="openAdminModal(admin)"
-              class="text-blue1 hover:text-blue-700"
-            >
-              Edit
-            </button>
+            <div class="flex gap-3">
+              <button
+                @click="openModal('admin', admin)"
+                class="text-blue1 hover:text-blue-700"
+              >
+                Edit
+              </button>
+              <button
+                v-if="admin.adminId !== currentUser.adminId"
+                @click="confirmDelete('admin', admin.adminId)"
+                class="text-red-500 hover:text-red-700"
+              >
+                Delete
+              </button>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- Admin Modal -->
+    <!-- Staff Management Section -->
     <div
-      v-if="showAdminModal"
+      class="bg-white rounded-2xl p-4 sm:p-6 lg:p-8 shadow-sm mx-4 sm:mx-6 lg:mx-0"
+    >
+      <div
+        class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 sm:gap-0"
+      >
+        <h2 class="text-md font-satoshi-medium text-text">Staff Management</h2>
+        <button
+          @click="openModal('staff', null)"
+          class="bg-blue1 text-white px-4 py-2 rounded-full w-full sm:w-auto"
+        >
+          Add Staff
+        </button>
+      </div>
+
+      <!-- Loading State -->
+      <div v-if="loadingStaff" class="flex justify-center items-center py-8">
+        <intersecting-circles-spinner
+          :animation-duration="1200"
+          :size="70"
+          color="#3f73ce"
+        />
+      </div>
+
+      <!-- Staff List -->
+      <div v-else class="space-y-4">
+        <div
+          v-for="staff in staffMembers"
+          :key="staff.staffId"
+          class="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 bg-gray-50 rounded-lg gap-4 sm:gap-0"
+        >
+          <div class="flex items-center gap-4 w-full sm:w-auto">
+            <div
+              class="w-12 h-12 rounded-full bg-blue1/10 overflow-hidden flex-shrink-0"
+            >
+              <img
+                v-if="staff.profileImage"
+                :src="staff.profileImage"
+                class="w-full h-full object-cover"
+                alt="Profile"
+              />
+            </div>
+            <div>
+              <p class="font-medium mb-1">{{ staff.fullName }}</p>
+              <p
+                class="text-md text-blue1/80 tracking-wide font-satoshi-regular"
+              >
+                {{ staff.email }}
+              </p>
+              <p class="text-md text-text/50">ID: {{ staff.staffId }}</p>
+              <p class="text-sm text-gray-400" v-if="staff.createdAt">
+                Created: {{ formatTimestamp(staff.createdAt) }}
+              </p>
+            </div>
+          </div>
+          <div
+            class="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end"
+          >
+            <span class="text-sm text-gray-400">
+              Last Login: {{ formatLastLogin(staff.lastLogin) }}
+            </span>
+            <div class="flex gap-3">
+              <button
+                @click="openModal('staff', staff)"
+                class="text-blue1 hover:text-blue-700"
+              >
+                Edit
+              </button>
+              <button
+                @click="confirmDelete('staff', staff.staffId)"
+                class="text-red-500 hover:text-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Modal -->
+    <div
+      v-if="showModal"
       class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
     >
       <div class="bg-white rounded-2xl p-4 sm:p-8 w-full max-w-md">
         <h3 class="text-lg font-satoshi-medium mb-6">
-          {{ editingAdmin ? "Edit Admin" : "Add New Admin" }}
+          {{ editingUser ? `Edit ${currentRole}` : `Add New ${currentRole}` }}
         </h3>
-        <form @submit.prevent="saveAdmin" class="space-y-4">
+        <form @submit.prevent="saveUser" class="space-y-4">
           <div class="flex justify-center mb-4">
             <div class="relative">
               <div class="w-24 h-24 rounded-full bg-blue1/10 overflow-hidden">
@@ -112,13 +206,15 @@
           </div>
 
           <div>
-            <label class="block text-text/60">Admin ID</label>
+            <label class="block text-text/60">{{
+              currentRole === "admin" ? "Admin ID" : "Staff ID"
+            }}</label>
             <select
-              v-model="adminForm.adminId"
+              v-model="userForm.id"
               class="w-full px-4 py-2 rounded-full border bg-graytint"
-              :disabled="editingAdmin"
+              :disabled="editingUser"
             >
-              <option v-for="id in availableAdminIds" :key="id" :value="id">
+              <option v-for="id in availableIds" :key="id" :value="id">
                 {{ id }}
               </option>
             </select>
@@ -126,7 +222,7 @@
           <div>
             <label class="block text-text/60">Full Name</label>
             <input
-              v-model="adminForm.fullName"
+              v-model="userForm.fullName"
               type="text"
               class="w-full px-4 py-2 rounded-full border bg-graytint"
               required
@@ -135,7 +231,7 @@
           <div>
             <label class="block text-text/60">Email</label>
             <input
-              v-model="adminForm.email"
+              v-model="userForm.email"
               type="email"
               class="w-full px-4 py-2 rounded-full border bg-graytint"
               required
@@ -144,22 +240,22 @@
           <div>
             <label class="block text-text/60">
               {{
-                editingAdmin
+                editingUser
                   ? "New Password (leave blank to keep current)"
                   : "Password"
               }}
             </label>
             <input
-              v-model="adminForm.password"
+              v-model="userForm.password"
               type="password"
               class="w-full px-4 py-2 rounded-full border bg-graytint"
-              :required="!editingAdmin"
+              :required="!editingUser"
             />
           </div>
           <div class="flex justify-end gap-4">
             <button
               type="button"
-              @click="showAdminModal = false"
+              @click="showModal = false"
               class="px-4 py-2 rounded-full border"
             >
               Cancel
@@ -168,7 +264,7 @@
               type="submit"
               class="bg-blue1 text-white px-4 py-2 rounded-full"
             >
-              {{ editingAdmin ? "Save Changes" : "Add Admin" }}
+              {{ editingUser ? "Save Changes" : `Add ${currentRole}` }}
             </button>
           </div>
         </form>
@@ -184,6 +280,7 @@ import { serverTimestamp } from "firebase/firestore";
 import { PencilIcon } from "@heroicons/vue/24/solid";
 import { handleImageUpload } from "@/utils/image-utils";
 import { IntersectingCirclesSpinner } from "epic-spinners";
+import { ref, computed, onMounted } from "vue";
 
 export default {
   name: "Settings",
@@ -192,66 +289,65 @@ export default {
     IntersectingCirclesSpinner,
   },
   setup() {
-    const {
-      items,
-      loading,
-      error,
-      fetchItems,
-      addItem,
-      updateItem,
-      deleteItem,
-    } = useCRUD("admins");
+    const adminCRUD = useCRUD("admins");
+    const staffCRUD = useCRUD("staff");
+
     return {
-      items,
-      loading,
-      error,
-      fetchItems,
-      addItem,
-      updateItem,
-      deleteItem,
+      adminCRUD,
+      staffCRUD,
     };
   },
   data() {
     return {
       admins: [],
-      showAdminModal: false,
-      editingAdmin: null,
-      adminForm: {
-        adminId: "",
+      staffMembers: [],
+      showModal: false,
+      editingUser: null,
+      currentRole: "admin",
+      userForm: {
+        id: "",
         fullName: "",
         email: "",
         password: "",
         profileImage: "",
       },
       imagePreview: null,
+      currentUser: {},
+      loadingAdmins: true,
+      loadingStaff: true,
     };
   },
   computed: {
-    availableAdminIds() {
-      const usedIds = new Set(this.items.map((admin) => admin.adminId));
-      return ["ADMIN1", "ADMIN2", "ADMIN3"].filter(
-        (id) =>
-          !usedIds.has(id) ||
-          (this.editingAdmin && this.editingAdmin.adminId === id)
-      );
-    },
-  },
-  watch: {
-    items: {
-      immediate: true,
-      handler(newItems) {
-        this.admins = newItems;
-      },
+    availableIds() {
+      if (this.currentRole === "admin") {
+        const usedIds = new Set(this.admins.map((admin) => admin.adminId));
+        return ["ADMIN1", "ADMIN2", "ADMIN3"].filter(
+          (id) =>
+            !usedIds.has(id) ||
+            (this.editingUser && this.editingUser.adminId === id)
+        );
+      } else {
+        const usedIds = new Set(
+          this.staffMembers.map((staff) => staff.staffId)
+        );
+        const availableStaffIds = [];
+        for (let i = 1; i <= 10; i++) {
+          const id = `STAFF${i}`;
+          if (
+            !usedIds.has(id) ||
+            (this.editingUser && this.editingUser.staffId === id)
+          ) {
+            availableStaffIds.push(id);
+          }
+        }
+        return availableStaffIds;
+      }
     },
   },
   methods: {
     formatLastLogin(timestamp) {
       if (!timestamp) return "Never";
-
-      // Convert Firebase timestamp to JS Date
-      const date = timestamp.toDate();
-
-      // Format the date
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
       return new Intl.DateTimeFormat("en-US", {
         year: "numeric",
         month: "short",
@@ -260,18 +356,46 @@ export default {
         minute: "2-digit",
       }).format(date);
     },
-    async fetchAdmins() {
-      await this.fetchItems();
+    formatTimestamp(timestamp) {
+      if (!timestamp) return "Unknown";
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return new Intl.DateTimeFormat("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }).format(date);
     },
-    openAdminModal(admin) {
-      this.editingAdmin = admin;
-      if (admin) {
-        this.adminForm = { ...admin };
-        this.adminForm.password = "";
-        this.imagePreview = admin.profileImage;
+    async fetchAdmins() {
+      this.loadingAdmins = true;
+      try {
+        await this.adminCRUD.fetchItems();
+        this.admins = this.adminCRUD.items.value;
+      } finally {
+        this.loadingAdmins = false;
+      }
+    },
+    async fetchStaff() {
+      this.loadingStaff = true;
+      try {
+        await this.staffCRUD.fetchItems();
+        this.staffMembers = this.staffCRUD.items.value;
+      } finally {
+        this.loadingStaff = false;
+      }
+    },
+    openModal(role, user) {
+      this.currentRole = role;
+      this.editingUser = user;
+      if (user) {
+        this.userForm = {
+          ...user,
+          id: role === "admin" ? user.adminId : user.staffId,
+        };
+        this.userForm.password = "";
+        this.imagePreview = user.profileImage;
       } else {
-        this.adminForm = {
-          adminId: this.availableAdminIds[0],
+        this.userForm = {
+          id: this.availableIds[0],
           fullName: "",
           email: "",
           password: "",
@@ -279,59 +403,105 @@ export default {
         };
         this.imagePreview = null;
       }
-      this.showAdminModal = true;
+      this.showModal = true;
     },
     async handleImageChange(event) {
       const file = event.target.files[0];
       if (file) {
         const base64 = await handleImageUpload(file);
         this.imagePreview = base64;
-        this.adminForm.profileImage = base64;
+        this.userForm.profileImage = base64;
       }
     },
-    async saveAdmin() {
-      const adminData = {
-        id: this.adminForm.adminId,
-        adminId: this.adminForm.adminId,
-        fullName: this.adminForm.fullName,
-        email: this.adminForm.email,
-        profileImage: this.adminForm.profileImage,
+    async saveUser() {
+      const isAdmin = this.currentRole === "admin";
+      const idField = isAdmin ? "adminId" : "staffId";
+
+      const userData = {
+        id: this.userForm.id,
+        [idField]: this.userForm.id,
+        fullName: this.userForm.fullName,
+        email: this.userForm.email,
+        profileImage: this.userForm.profileImage,
         updatedAt: serverTimestamp(),
       };
 
-      if (!this.editingAdmin || this.adminForm.password) {
-        adminData.password = this.adminForm.password;
+      if (!this.editingUser || this.userForm.password) {
+        userData.password = this.userForm.password;
       }
 
-      if (!this.editingAdmin) {
-        adminData.createdAt = serverTimestamp();
-        adminData.lastLogin = null;
+      if (!this.editingUser) {
+        userData.createdAt = serverTimestamp();
+        userData.lastLogin = null;
       }
 
-      if (this.editingAdmin) {
-        await this.updateItem(adminData);
-      } else {
-        await this.addItem(adminData);
-      }
+      try {
+        if (isAdmin) {
+          if (this.editingUser) {
+            await this.adminCRUD.updateItem(userData);
+          } else {
+            await this.adminCRUD.addItem(userData);
+          }
+          await this.fetchAdmins();
+        } else {
+          if (this.editingUser) {
+            await this.staffCRUD.updateItem(userData);
+          } else {
+            await this.staffCRUD.addItem(userData);
+          }
+          await this.fetchStaff();
+        }
 
+        // Update local storage if updating current user
+        const storedUser = JSON.parse(localStorage.getItem("currentUser"));
+        if (storedUser && storedUser[idField] === this.userForm.id) {
+          localStorage.setItem(
+            "currentUser",
+            JSON.stringify({
+              ...storedUser,
+              ...userData,
+            })
+          );
+        }
+
+        this.showModal = false;
+      } catch (err) {
+        console.error("Error saving user:", err);
+        alert("Failed to save user. Please try again.");
+      }
+    },
+    async confirmDelete(role, userId) {
       if (
-        JSON.parse(localStorage.getItem("currentAdmin"))?.adminId ===
-        this.adminForm.adminId
+        confirm(
+          "Are you sure you want to delete this user? This action cannot be undone."
+        )
       ) {
-        localStorage.setItem(
-          "currentAdmin",
-          JSON.stringify({
-            ...JSON.parse(localStorage.getItem("currentAdmin")),
-            ...adminData,
-          })
-        );
-      }
+        const isAdmin = role === "admin";
 
-      this.showAdminModal = false;
+        try {
+          if (isAdmin) {
+            await this.adminCRUD.deleteItem(userId);
+            await this.fetchAdmins();
+          } else {
+            await this.staffCRUD.deleteItem(userId);
+            await this.fetchStaff();
+          }
+        } catch (err) {
+          console.error("Error deleting user:", err);
+          alert("Failed to delete user. Please try again.");
+        }
+      }
     },
   },
   async mounted() {
+    // Get current user from localStorage
+    const userData = localStorage.getItem("currentUser");
+    if (userData) {
+      this.currentUser = JSON.parse(userData);
+    }
+
     await this.fetchAdmins();
+    await this.fetchStaff();
   },
 };
 </script>

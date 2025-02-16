@@ -4,7 +4,7 @@
       <h1 class="text-2xl font-satoshi-bold text-text">Medical Records</h1>
       <button
         @click="showAddRecord"
-        class="bg-blue1 text-white px-4 py-2 rounded-full"
+        class="bg-blue1 hover:bg-blue1/80 text-white px-4 py-2 rounded-full text-[15px]"
       >
         Add Record
       </button>
@@ -24,7 +24,11 @@
               class="pl-10 px-4 py-2 rounded-full bg-graytint/40 border border-text/20 focus:ring-1 focus:ring-blue1/50 focus:outline-none"
             />
           </div>
-          <Dropdown v-model="filterDate" class="w-40" />
+          <Dropdown
+            v-model="filterDate"
+            :options="dateFilterOptions"
+            class="w-40"
+          />
         </div>
 
         <div v-if="loading" class="flex justify-center items-center py-8">
@@ -106,6 +110,7 @@
     </div>
 
     <RecordModal
+      v-if="showModal"
       v-model="showModal"
       :is-editing="isEditing"
       :initial-form-data="formData"
@@ -140,7 +145,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import {
   collection,
   getDocs,
@@ -150,6 +155,7 @@ import {
   query,
   orderBy,
   where,
+  onSnapshot,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import {
@@ -215,49 +221,59 @@ export default {
     const formData = ref({ ...INITIAL_FORM });
     const healthAlerts = ref([]);
     const loading = ref(true);
+    const dateFilterOptions = [
+      { value: "", label: "All Time" },
+      { value: "today", label: "Today" },
+      { value: "week", label: "Last 7 Days" },
+      { value: "month", label: "Last 30 Days" },
+    ];
+
+    let recordsUnsubscribe = null;
+    let healthAlertsUnsubscribe = null;
 
     async function fetchData() {
       loading.value = true;
       try {
-        await Promise.all([
-          fetchRecords(),
-          fetchStudents(),
-          fetchHealthAlerts(),
-        ]);
+        await fetchStudents();
+        setupSnapshotListeners();
       } finally {
         loading.value = false;
       }
     }
 
-    async function fetchRecords() {
-      const q = query(
+    function setupSnapshotListeners() {
+      // Setup records snapshot listener
+      const recordsQuery = query(
         collection(db, "medicalRecords"),
         orderBy("date", "desc")
       );
-      const querySnapshot = await getDocs(q);
-      records.value = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+
+      recordsUnsubscribe = onSnapshot(recordsQuery, (snapshot) => {
+        records.value = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+      });
+
+      // Setup health alerts snapshot listener
+      const today = new Date();
+      const alertsQuery = query(
+        collection(db, "healthAlerts"),
+        where("date", ">=", today.toISOString()),
+        orderBy("date")
+      );
+
+      healthAlertsUnsubscribe = onSnapshot(alertsQuery, (snapshot) => {
+        healthAlerts.value = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+      });
     }
 
     async function fetchStudents() {
       const querySnapshot = await getDocs(collection(db, "students"));
       students.value = querySnapshot.docs.map((doc) => ({ ...doc.data() }));
-    }
-
-    async function fetchHealthAlerts() {
-      const today = new Date();
-      const q = query(
-        collection(db, "healthAlerts"),
-        where("date", ">=", today.toISOString()),
-        orderBy("date")
-      );
-      const querySnapshot = await getDocs(q);
-      healthAlerts.value = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
     }
 
     const filteredRecords = computed(() => {
@@ -283,12 +299,16 @@ export default {
       switch (range) {
         case "today":
           return recordDate.toDateString() === today.toDateString();
-        case "week":
-          const weekAgo = new Date(today.setDate(today.getDate() - 7));
+        case "week": {
+          const weekAgo = new Date();
+          weekAgo.setDate(today.getDate() - 7);
           return recordDate >= weekAgo;
-        case "month":
-          const monthAgo = new Date(today.setMonth(today.getMonth() - 1));
+        }
+        case "month": {
+          const monthAgo = new Date();
+          monthAgo.setMonth(today.getMonth() - 1);
           return recordDate >= monthAgo;
+        }
         default:
           return true;
       }
@@ -323,19 +343,16 @@ export default {
 
     async function deleteRecord(record) {
       if (confirm("Are you sure you want to delete this record?")) {
-        loading.value = true;
         try {
           const docRef = doc(db, "medicalRecords", record.id.toString());
           await deleteDoc(docRef);
-          await fetchRecords();
-        } finally {
-          loading.value = false;
+        } catch (error) {
+          console.error("Error deleting record:", error);
         }
       }
     }
 
     async function submitForm(data) {
-      loading.value = true;
       try {
         const docRef = doc(
           db,
@@ -346,17 +363,19 @@ export default {
           ...data,
           updatedAt: new Date().toISOString(),
         });
-        await fetchRecords();
         showModal.value = false;
       } catch (error) {
         console.error("Error saving record:", error);
-      } finally {
-        loading.value = false;
       }
     }
 
     onMounted(() => {
       fetchData();
+    });
+
+    onUnmounted(() => {
+      if (recordsUnsubscribe) recordsUnsubscribe();
+      if (healthAlertsUnsubscribe) healthAlertsUnsubscribe();
     });
 
     return {
@@ -378,6 +397,7 @@ export default {
       deleteRecord,
       submitForm,
       loading,
+      dateFilterOptions,
     };
   },
 };

@@ -149,15 +149,10 @@
                   class="px-4 py-2 rounded-lg bg-graytint"
                   required
                 />
-                <select
+                <Dropdown
                   v-model="formData.personalInfo.sex"
-                  class="px-4 py-2 rounded-lg bg-graytint"
-                  required
-                >
-                  <option value="">Select Sex</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                </select>
+                  :options="sexOptions"
+                />
                 <input
                   v-model="formData.personalInfo.nationality"
                   placeholder="Nationality"
@@ -182,22 +177,14 @@
             <div class="space-y-4">
               <h3 class="font-satoshi-bold">Academic Information</h3>
               <div class="grid grid-cols-2 gap-4">
-                <input
+                <Dropdown
                   v-model="formData.academicInfo.course"
-                  placeholder="Course"
-                  class="px-4 py-2 rounded-lg bg-graytint"
-                  required
+                  :options="courseOptions"
                 />
-                <select
+                <Dropdown
                   v-model="formData.academicInfo.yearLevel"
-                  class="px-4 py-2 rounded-lg bg-graytint"
-                  required
-                >
-                  <option value="">Select Year Level</option>
-                  <option v-for="year in yearOptions" :key="year" :value="year">
-                    {{ year }}
-                  </option>
-                </select>
+                  :options="yearLevelOptions"
+                />
               </div>
             </div>
 
@@ -327,8 +314,30 @@ import { handleImageUpload } from "@/utils/image-utils";
 import { handleDocumentUpload } from "@/utils/document-upload-utils";
 import { useCRUD } from "@/utils/firebaseCRUD";
 import HealthExamForm from "./HealthExamForm.vue";
+import Dropdown from "./Dropdown.vue";
 
-const yearOptions = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
+const courseOptions = [
+  { value: "", label: "Choose a Course" },
+  { value: "BSCRIM", label: "BSCRIM" },
+  { value: "BEED", label: "BEED" },
+  { value: "BSED", label: "BSED" },
+  { value: "BSIT", label: "BSIT" },
+  { value: "BSAB", label: "BSAB" },
+  { value: "HM", label: "HM" },
+];
+
+const yearLevelOptions = [
+  { value: "1st Year", label: "1st Year" },
+  { value: "2nd Year", label: "2nd Year" },
+  { value: "3rd Year", label: "3rd Year" },
+  { value: "4th Year", label: "4th Year" },
+];
+
+const sexOptions = [
+  { value: "", label: "Select Sex" },
+  { value: "Male", label: "Male" },
+  { value: "Female", label: "Female" },
+];
 
 const documentLabels = {
   medicalCertificate: "Medical Certificate",
@@ -350,6 +359,7 @@ export default {
     PencilIcon,
     EyeIcon,
     HealthExamForm,
+    Dropdown,
   },
   props: {
     modelValue: Boolean,
@@ -462,7 +472,6 @@ export default {
     }
 
     async function handleHealthExamSubmit(pdfData) {
-      // pdfData is already in base64 format, just save it directly
       formData.value.documents.healthExam = pdfData;
       showHealthExamModal.value = false;
     }
@@ -470,8 +479,8 @@ export default {
     function viewDocument(documentData) {
       const newWindow = window.open();
       newWindow.document.write(`
-      <iframe src="${documentData}" style="width:100%;height:100vh;border:none;"></iframe>
-    `);
+        <iframe src="${documentData}" style="width:100%;height:100vh;border:none;"></iframe>
+      `);
     }
 
     function closeModal() {
@@ -509,7 +518,6 @@ export default {
       fileInput,
       formData,
       imagePreview,
-      yearOptions,
       documentLabels,
       acceptedDocumentTypes,
       showHealthExamModal,
@@ -520,6 +528,9 @@ export default {
       handleBackgroundClick,
       submitForm,
       handleHealthExamSubmit,
+      courseOptions,
+      yearLevelOptions,
+      sexOptions,
     };
   },
 };

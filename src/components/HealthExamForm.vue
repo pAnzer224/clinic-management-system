@@ -214,7 +214,7 @@
       </div>
     </div>
 
-    <div class="sticky bottom-4 right-4 flex justify-end px-8">
+    <div class="sticky right-4 flex justify-end px-8">
       <button
         @click="saveForm"
         class="bg-blue1 text-white px-6 py-2 rounded-lg"

@@ -27,11 +27,7 @@
           class="text-gray-600 hover:text-gray-900 hidden sm:block"
           >SOPs</router-link
         >
-        <router-link
-          to="/analytics"
-          class="text-gray-600 hover:text-gray-900 hidden sm:block"
-          >Analytics</router-link
-        >
+
         <router-link
           to="/security"
           class="text-gray-600 hover:text-gray-900 hidden sm:block"
@@ -66,11 +62,7 @@
         class="block px-4 py-2 text-gray-600 hover:text-gray-900"
         >SOPs</router-link
       >
-      <router-link
-        to="/analytics"
-        class="block px-4 py-2 text-gray-600 hover:text-gray-900"
-        >Analytics</router-link
-      >
+
       <router-link
         to="/security"
         class="block px-4 py-2 text-gray-600 hover:text-gray-900"

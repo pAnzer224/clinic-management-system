@@ -87,24 +87,12 @@
             <!-- Student Selection (only show when adding new record) -->
             <div v-if="!isEditing" class="space-y-4">
               <h3 class="font-satoshi-bold">Student Information</h3>
-              <div>
-                <select
-                  v-model="formData.student"
-                  class="w-full px-4 py-2 rounded-lg bg-graytint"
-                  required
-                >
-                  <option value="">Select Student</option>
-                  <option
-                    v-for="student in students"
-                    :key="student.studentId"
-                    :value="student"
-                  >
-                    {{ student.firstName }} {{ student.lastName }} ({{
-                      student.studentId
-                    }})
-                  </option>
-                </select>
-              </div>
+              <Dropdown
+                v-model="formData.student"
+                :options="studentOptions"
+                placeholder="Select Student"
+                required
+              />
             </div>
 
             <!-- Vital Signs -->
@@ -233,16 +221,12 @@
                   type="date"
                   class="w-full px-4 py-2 rounded-lg bg-graytint"
                 />
-                <select
+                <Dropdown
                   v-model="formData.status"
-                  class="w-full px-4 py-2 rounded-lg bg-graytint"
+                  :options="statusOptions"
+                  placeholder="Select Status"
                   required
-                >
-                  <option value="">Select Status</option>
-                  <option>Active</option>
-                  <option>Completed</option>
-                  <option>Follow-up Required</option>
-                </select>
+                />
               </div>
             </div>
 
@@ -270,17 +254,19 @@
 </template>
 
 <script>
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import { useCRUD } from "@/utils/firebaseCRUD";
 import { XMarkIcon, EyeIcon } from "@heroicons/vue/24/solid";
+import Dropdown from "@/components/Dropdown.vue";
 
 export default {
   name: "RecordModal",
   components: {
     XMarkIcon,
     EyeIcon,
+    Dropdown,
   },
   props: {
     modelValue: Boolean,
@@ -301,6 +287,19 @@ export default {
     const newSymptom = ref("");
     const newMedication = ref({ name: "", dosage: "" });
     const studentDetails = ref({});
+
+    const studentOptions = computed(() => {
+      return props.students.map((student) => ({
+        value: student,
+        label: `${student.firstName} ${student.lastName} (${student.studentId})`,
+      }));
+    });
+
+    const statusOptions = [
+      { value: "Active", label: "Active" },
+      { value: "Completed", label: "Completed" },
+      { value: "Follow-up Required", label: "Follow-up Required" },
+    ];
 
     const documents = [
       { field: "medicalCertificate", label: "Medical Certificate" },
@@ -426,6 +425,8 @@ export default {
       documents,
       newSymptom,
       newMedication,
+      studentOptions,
+      statusOptions,
       addSymptom,
       removeSymptom,
       addMedication,

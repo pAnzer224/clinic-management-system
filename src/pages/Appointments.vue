@@ -18,57 +18,127 @@
           :appointments="appointments"
           @day-selected="handleDaySelected"
           @time-selected="handleTimeSelected"
-          class="h-[calc(99vh-16rem)]"
+          class="min-h-[calc(108.4vh-16rem)] max-h-[calc(108.4vh-16rem)]"
         />
       </div>
 
       <div
-        class="bg-white rounded-2xl shadow-sm h-[calc(92vh-8rem)] flex flex-col"
+        class="bg-white rounded-2xl shadow-sm h-[calc(92vh-8rem)] flex flex-col overflow-y-auto"
       >
-        <div class="p-8 sticky top-0 bg-white rounded-t-2xl z-10">
-          <h2 class="text-md font-satoshi-medium text-text">
+        <!-- Upcoming Appointments -->
+        <div class="p-6 sticky top-0 bg-white rounded-t-2xl z-10">
+          <h2 class="text-lg font-satoshi-medium text-text">
             Upcoming Appointments
           </h2>
         </div>
 
-        <div class="px-8 pb-8 overflow-y-auto flex-1">
-          <div class="space-y-4">
-            <div
-              v-for="appointment in appointments"
-              :key="appointment.id"
-              class="flex items-center justify-between p-4 border border-graytint rounded-xl hover:border-blue1 transition-colors"
-            >
-              <div class="flex-1">
-                <h3 class="font-satoshi-medium text-md">
-                  {{ appointment.studentName }} ({{ appointment.studentId }})
-                </h3>
-                <p class="text-text/60">{{ appointment.reason }}</p>
-              </div>
-              <div class="text-right">
-                <p class="font-satoshi-medium">{{ appointment.time }}</p>
-                <p class="text-text/60">{{ formatDate(appointment.date) }}</p>
-              </div>
-              <div class="ml-4 flex gap-2">
-                <button
-                  @click="editAppointment(appointment)"
-                  class="text-blue1 hover:text-blue-700"
+        <div class="px-6 pb-4">
+          <div
+            v-if="upcomingAppointments.length === 0"
+            class="text-center text-text/60 py-8"
+          >
+            No upcoming appointments
+          </div>
+          <div v-else>
+            <div class="relative overflow-hidden">
+              <div
+                class="appointment-slider"
+                :style="{ transform: `translateX(-${currentIndex * 100}%)` }"
+              >
+                <div
+                  v-for="(appointment, index) in upcomingAppointments"
+                  :key="appointment.id"
+                  class="p-4 bg-white border border-graytint rounded-xl hover:border-blue1 transition-colors w-full flex-shrink-0"
                 >
-                  <PencilIcon class="h-5 w-5" />
-                </button>
+                  <div class="flex items-start justify-between mb-2">
+                    <h3 class="font-satoshi-medium text-text">
+                      {{ appointment.studentName }}
+                    </h3>
+                    <div class="flex gap-2">
+                      <button
+                        @click="editAppointment(appointment)"
+                        class="text-blue1 hover:text-blue-700"
+                      >
+                        <PencilIcon class="h-4 w-4" />
+                      </button>
+                      <button
+                        @click="deleteAppointment(appointment.id)"
+                        class="text-red-600 hover:text-red-700"
+                      >
+                        <TrashIcon class="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                  <p class="text-sm text-text/60 mb-2">
+                    {{ appointment.reason }}
+                  </p>
+                  <div class="flex gap-4 text-sm text-text/80">
+                    <span>{{ appointment.time }}</span>
+                    <span>{{ formatDate(appointment.date) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="flex justify-center items-center gap-4 mt-4">
+              <button
+                @click="prevAppointment"
+                class="hover:bg-blue3/60 rounded-full p-2 disabled:opacity-50"
+                :disabled="currentIndex === 0"
+              >
+                <ChevronLeftIcon class="h-5 w-5 text-text" />
+              </button>
+              <span class="text-sm text-text/60">
+                {{ currentIndex + 1 }} / {{ upcomingAppointments.length }}
+              </span>
+              <button
+                @click="nextAppointment"
+                class="hover:bg-blue3/60 rounded-full p-2 shadow-sm disabled:opacity-50"
+                :disabled="currentIndex >= upcomingAppointments.length - 1"
+              >
+                <ChevronRightIcon class="h-5 w-5 text-text" />
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Concluded Appointments -->
+        <div class="p-6 bg-white z-10 border-t">
+          <h2 class="text-lg font-satoshi-medium text-text">
+            Concluded Appointments
+          </h2>
+        </div>
+
+        <div class="px-6 pb-6 overflow-y-auto">
+          <div
+            v-if="concludedAppointments.length === 0"
+            class="text-center text-text/60 py-8"
+          >
+            No concluded appointments
+          </div>
+          <div v-else class="space-y-3 py-2">
+            <div
+              v-for="appointment in concludedAppointments"
+              :key="appointment.id"
+              class="p-4 bg-gray-50 border border-graytint rounded-xl"
+            >
+              <div class="flex items-start justify-between mb-2">
+                <h3 class="font-satoshi-medium text-text">
+                  {{ appointment.studentName }}
+                </h3>
                 <button
                   @click="deleteAppointment(appointment.id)"
                   class="text-red-600 hover:text-red-700"
                 >
-                  <TrashIcon class="h-5 w-5" />
+                  <TrashIcon class="h-4 w-4" />
                 </button>
               </div>
+              <p class="text-sm text-text/60 mb-2">{{ appointment.reason }}</p>
+              <div class="flex gap-4 text-sm text-text/80">
+                <span>{{ appointment.time }}</span>
+                <span>{{ formatDate(appointment.date) }}</span>
+              </div>
             </div>
-            <p
-              v-if="appointments.length === 0"
-              class="text-center text-text/60 py-4"
-            >
-              No upcoming appointments
-            </p>
           </div>
         </div>
       </div>
@@ -78,6 +148,7 @@
     <div
       v-if="showScheduleModal"
       class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+      @click.self="showScheduleModal = false"
     >
       <div class="bg-white rounded-2xl p-8 shadow-lg w-[500px]">
         <h2 class="text-xl font-satoshi-bold mb-6">
@@ -87,22 +158,12 @@
           <div>
             <label class="block mb-1">Student</label>
             <div class="flex items-center gap-2">
-              <select
+              <Dropdown
                 v-model="selectedStudent"
-                required
-                class="flex-1 px-4 py-2 rounded-full bg-graytint"
-              >
-                <option value="">Select Student</option>
-                <option
-                  v-for="student in students"
-                  :key="student.studentId"
-                  :value="student"
-                >
-                  {{ student.firstName }} {{ student.lastName }} ({{
-                    student.studentId
-                  }})
-                </option>
-              </select>
+                :options="studentOptions"
+                placeholder="Select Student"
+                class="flex-1"
+              />
               <button
                 type="button"
                 @click="showStudentModal = true"
@@ -118,21 +179,17 @@
               v-model="appointmentForm.date"
               type="date"
               required
-              class="w-full px-4 py-2 rounded-full bg-graytint"
+              class="w-full px-4 py-2 rounded-lg bg-graytint"
             />
           </div>
           <div>
             <label class="block mb-1">Time</label>
-            <select
+            <Dropdown
               v-model="appointmentForm.time"
+              :options="timeSlotOptions"
+              placeholder="Select Time Slot"
               required
-              class="w-full px-4 py-2 rounded-full bg-graytint"
-            >
-              <option value="">Select Time Slot</option>
-              <option v-for="time in timeSlots" :key="time" :value="time">
-                {{ time }}
-              </option>
-            </select>
+            />
           </div>
           <div>
             <label class="block mb-1">Reason for Visit</label>
@@ -172,7 +229,7 @@
 </template>
 
 <script>
-import { ref, watch } from "vue";
+import { ref, watch, computed } from "vue";
 import {
   collection,
   addDoc,
@@ -185,18 +242,28 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
-import { PlusIcon, PencilIcon, TrashIcon } from "@heroicons/vue/24/outline";
+import {
+  PlusIcon,
+  PencilIcon,
+  TrashIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@heroicons/vue/24/outline";
 import AppointmentCalendar from "@/components/AppointmentCalendar.vue";
 import StudentModal from "@/components/StudentModal.vue";
+import Dropdown from "@/components/Dropdown.vue";
 
 export default {
   name: "Appointments",
   components: {
     AppointmentCalendar,
     StudentModal,
+    Dropdown,
     PlusIcon,
     PencilIcon,
     TrashIcon,
+    ChevronLeftIcon,
+    ChevronRightIcon,
   },
   setup() {
     const appointments = ref([]);
@@ -207,6 +274,7 @@ export default {
     const selectedDate = ref(new Date().toISOString().split("T")[0]);
     const editingId = ref(null);
     const selectedStudent = ref("");
+    const currentIndex = ref(0);
     const studentFormData = ref({
       studentId: "",
       lastName: "",
@@ -244,6 +312,20 @@ export default {
       "04:30 PM",
     ];
 
+    const timeSlotOptions = computed(() => {
+      return timeSlots.map((time) => ({
+        value: time,
+        label: time,
+      }));
+    });
+
+    const studentOptions = computed(() => {
+      return students.value.map((student) => ({
+        value: student,
+        label: `${student.firstName} ${student.lastName} (${student.studentId})`,
+      }));
+    });
+
     const initialFormState = {
       studentName: "",
       studentId: "",
@@ -253,6 +335,40 @@ export default {
     };
 
     const appointmentForm = ref({ ...initialFormState });
+
+    const upcomingAppointments = computed(() => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return appointments.value.filter((appointment) => {
+        const appointmentDate = new Date(appointment.date);
+        appointmentDate.setHours(0, 0, 0, 0);
+        return appointmentDate >= today;
+      });
+    });
+
+    const concludedAppointments = computed(() => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      return appointments.value.filter((appointment) => {
+        const appointmentDate = new Date(appointment.date);
+        appointmentDate.setHours(0, 0, 0, 0);
+        return appointmentDate < today;
+      });
+    });
+
+    const nextAppointment = () => {
+      if (currentIndex.value < upcomingAppointments.value.length - 1) {
+        currentIndex.value++;
+      }
+    };
+
+    const prevAppointment = () => {
+      if (currentIndex.value > 0) {
+        currentIndex.value--;
+      }
+    };
 
     watch(selectedStudent, (student) => {
       if (student) {
@@ -344,6 +460,12 @@ export default {
         try {
           await deleteDoc(doc(db, "appointments", id));
           await fetchAppointments();
+          if (currentIndex.value >= upcomingAppointments.value.length) {
+            currentIndex.value = Math.max(
+              0,
+              upcomingAppointments.value.length - 1
+            );
+          }
         } catch (error) {
           console.error("Error deleting appointment:", error);
         }
@@ -356,6 +478,8 @@ export default {
     return {
       appointments,
       students,
+      upcomingAppointments,
+      concludedAppointments,
       showScheduleModal,
       showStudentModal,
       isEditing,
@@ -364,6 +488,9 @@ export default {
       appointmentForm,
       studentFormData,
       timeSlots,
+      timeSlotOptions,
+      studentOptions,
+      currentIndex,
       formatDate,
       showModal,
       submitAppointment,
@@ -372,7 +499,20 @@ export default {
       deleteAppointment,
       handleDaySelected,
       handleTimeSelected,
+      nextAppointment,
+      prevAppointment,
     };
   },
 };
 </script>
+
+<style>
+.appointment-slider {
+  display: flex;
+  transition: transform 0.3s ease;
+}
+
+.appointment-slider > div {
+  width: 100%;
+}
+</style>
