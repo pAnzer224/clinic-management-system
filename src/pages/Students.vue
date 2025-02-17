@@ -101,7 +101,7 @@
                         <EyeIcon class="h-5 w-5 inline" />
                       </button>
                       <button
-                        @click="deleteStudent(student.studentId)"
+                        @click="deleteStudent(student)"
                         class="text-red-400 hover:text-red-600"
                       >
                         <TrashIcon class="h-5 w-5 inline" />
@@ -123,13 +123,23 @@
       v-model="showModal"
       :is-editing="isEditing"
       :initial-form-data="formData"
+      :appointments="appointments"
       @submit="submitForm"
     />
+
+    <!-- Activity Toast -->
+    <div
+      v-if="showToast"
+      class="fixed bottom-4 right-4 bg-blue1 text-white px-6 py-3 rounded-lg shadow-lg transition-opacity duration-500"
+      :class="{ 'opacity-100': showToast, 'opacity-0': !showToast }"
+    >
+      {{ toastMessage }}
+    </div>
   </main>
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import {
   EyeIcon,
@@ -138,9 +148,17 @@ import {
 } from "@heroicons/vue/24/outline";
 import StudentModal from "@/components/StudentModal.vue";
 import { useCRUD } from "@/utils/firebaseCRUD";
-import { serverTimestamp } from "firebase/firestore";
+import {
+  serverTimestamp,
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+} from "firebase/firestore";
 import { IntersectingCirclesSpinner } from "epic-spinners";
 import Dropdown from "@/components/Dropdown.vue";
+import { logActivity } from "@/utils/activity-logger";
+import { db } from "@/firebase-config";
 
 const YEAR_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
 const TABLE_HEADERS = ["Student ID", "Name", "Course", "Year Level", "Actions"];
@@ -163,6 +181,7 @@ const INITIAL_FORM = {
   guardianContact: "",
   profileImage: "",
   labTest: "",
+  documents: {},
 };
 
 export default {
@@ -193,6 +212,34 @@ export default {
     const showModal = ref(false);
     const isEditing = ref(false);
     const formData = ref({ ...INITIAL_FORM });
+    const showToast = ref(false);
+    const toastMessage = ref("");
+    const currentUser = ref(
+      JSON.parse(localStorage.getItem("currentUser")) || {}
+    );
+    const appointments = ref([]);
+    let unsubscribeAppointments = null;
+
+    function listenToAppointments() {
+      const appointmentsQuery = query(
+        collection(db, "appointments"),
+        orderBy("date"),
+        orderBy("time")
+      );
+
+      unsubscribeAppointments = onSnapshot(
+        appointmentsQuery,
+        (snapshot) => {
+          appointments.value = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+        },
+        (error) => {
+          console.error("Error fetching appointments:", error);
+        }
+      );
+    }
 
     const yearFilterOptions = computed(() => {
       return [
@@ -209,18 +256,27 @@ export default {
         return (
           matchesYear &&
           (!searchQuery.value ||
-            student.lastName.toLowerCase().includes(searchLower) ||
-            student.firstName.toLowerCase().includes(searchLower) ||
-            student.studentId.toLowerCase().includes(searchLower))
+            student.lastName?.toLowerCase().includes(searchLower) ||
+            student.firstName?.toLowerCase().includes(searchLower) ||
+            student.studentId?.toLowerCase().includes(searchLower))
         );
       });
     });
+
+    function showNotification(message) {
+      toastMessage.value = message;
+      showToast.value = true;
+      setTimeout(() => {
+        showToast.value = false;
+      }, 3000);
+    }
 
     onMounted(() => {
       if (route.query.openModal === "true") {
         add();
       }
       listenToChanges();
+      listenToAppointments();
     });
 
     function add() {
@@ -235,12 +291,23 @@ export default {
       showModal.value = true;
     }
 
-    async function deleteStudent(studentId) {
+    async function deleteStudent(student) {
       if (confirm("Are you sure you want to delete this student?")) {
         try {
-          await deleteItem(studentId);
+          await deleteItem(student.studentId);
+          logActivity({
+            type: "student",
+            action: "delete",
+            title: "Student Removed",
+            description: `Removed student ${student.firstName} ${student.lastName}`,
+            timestamp: serverTimestamp(),
+          });
+          showNotification(
+            `Student ${student.firstName} ${student.lastName} has been deleted`
+          );
         } catch (error) {
           console.error("Error deleting student:", error);
+          showNotification("Error deleting student");
         }
       }
     }
@@ -249,22 +316,34 @@ export default {
       try {
         const submitData = {
           ...data,
-          id: data.studentId,
           updatedAt: serverTimestamp(),
         };
 
         if (!isEditing.value) {
           submitData.createdAt = serverTimestamp();
+          await addItem(submitData);
+        } else {
+          await updateItem(submitData);
         }
 
-        if (isEditing.value) {
-          await updateItem(submitData);
-        } else {
-          await addItem(submitData);
-        }
-        showModal.value = false;
+        await logActivity({
+          type: "student",
+          action: isEditing.value ? "update" : "create",
+          title: isEditing.value ? "Student Updated" : "New Student Added",
+          description: isEditing.value
+            ? `Updated student information for ${data.firstName} ${data.lastName}`
+            : `Added new student ${data.firstName} ${data.lastName}`,
+          timestamp: serverTimestamp(),
+        });
+
+        showNotification(
+          `Student ${data.firstName} ${data.lastName} has been ${
+            isEditing.value ? "updated" : "added"
+          }`
+        );
       } catch (error) {
         console.error("Error saving student:", error);
+        showNotification("Error saving student information");
       }
     }
 
@@ -281,6 +360,10 @@ export default {
       yearFilterOptions,
       YEAR_OPTIONS,
       TABLE_HEADERS,
+      showToast,
+      toastMessage,
+      currentUser,
+      appointments,
       add,
       editStudent,
       deleteStudent,

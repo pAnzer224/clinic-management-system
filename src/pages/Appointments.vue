@@ -229,17 +229,18 @@
 </template>
 
 <script>
-import { ref, watch, computed } from "vue";
+import { ref, watch, computed, onMounted, onUnmounted } from "vue";
 import {
   collection,
   addDoc,
-  getDocs,
   updateDoc,
   deleteDoc,
   doc,
   query,
   orderBy,
   setDoc,
+  serverTimestamp,
+  onSnapshot,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import {
@@ -252,6 +253,7 @@ import {
 import AppointmentCalendar from "@/components/AppointmentCalendar.vue";
 import StudentModal from "@/components/StudentModal.vue";
 import Dropdown from "@/components/Dropdown.vue";
+import { logActivity } from "@/utils/activity-logger";
 
 export default {
   name: "Appointments",
@@ -275,6 +277,24 @@ export default {
     const editingId = ref(null);
     const selectedStudent = ref("");
     const currentIndex = ref(0);
+    const showToast = ref(false);
+    const toastMessage = ref("");
+    const currentUser = ref(
+      JSON.parse(localStorage.getItem("currentUser")) || {}
+    );
+
+    // Unsubscribe functions for cleanup
+    let unsubscribeAppointments = null;
+    let unsubscribeStudents = null;
+
+    function showNotification(message) {
+      toastMessage.value = message;
+      showToast.value = true;
+      setTimeout(() => {
+        showToast.value = false;
+      }, 3000);
+    }
+
     const studentFormData = ref({
       studentId: "",
       lastName: "",
@@ -377,19 +397,42 @@ export default {
       }
     });
 
-    async function fetchStudents() {
-      const querySnapshot = await getDocs(collection(db, "students"));
-      students.value = querySnapshot.docs.map((doc) => ({ ...doc.data() }));
+    // Real-time students listener
+    function listenToStudents() {
+      const studentsQuery = query(collection(db, "students"));
+      unsubscribeStudents = onSnapshot(
+        studentsQuery,
+        (snapshot) => {
+          students.value = snapshot.docs.map((doc) => ({ ...doc.data() }));
+        },
+        (error) => {
+          console.error("Error fetching students:", error);
+          showNotification("Error loading students data");
+        }
+      );
     }
 
-    async function fetchAppointments() {
-      const querySnapshot = await getDocs(
-        query(collection(db, "appointments"), orderBy("date"), orderBy("time"))
+    // Real-time appointments listener
+    function listenToAppointments() {
+      const appointmentsQuery = query(
+        collection(db, "appointments"),
+        orderBy("date"),
+        orderBy("time")
       );
-      appointments.value = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+
+      unsubscribeAppointments = onSnapshot(
+        appointmentsQuery,
+        (snapshot) => {
+          appointments.value = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+        },
+        (error) => {
+          console.error("Error fetching appointments:", error);
+          showNotification("Error loading appointments data");
+        }
+      );
     }
 
     function formatDate(dateString) {
@@ -416,15 +459,51 @@ export default {
 
     async function submitAppointment() {
       try {
+        const appointmentData = {
+          ...appointmentForm.value,
+          updatedAt: serverTimestamp(),
+        };
+
         if (isEditing.value && editingId.value) {
           await updateDoc(
             doc(db, "appointments", editingId.value),
-            appointmentForm.value
+            appointmentData
           );
+
+          await logActivity({
+            type: "appointment",
+            action: "update",
+            title: "Appointment Updated",
+            description: `Updated appointment for ${
+              appointmentForm.value.studentName
+            } on ${formatDate(appointmentForm.value.date)} at ${
+              appointmentForm.value.time
+            }`,
+            timestamp: serverTimestamp(),
+            performedBy: currentUser.value,
+          });
+
+          showNotification("Appointment updated successfully");
         } else {
-          await addDoc(collection(db, "appointments"), appointmentForm.value);
+          appointmentData.createdAt = serverTimestamp();
+          await addDoc(collection(db, "appointments"), appointmentData);
+
+          await logActivity({
+            type: "appointment",
+            action: "create",
+            title: "New Appointment Scheduled",
+            description: `Scheduled appointment for ${
+              appointmentForm.value.studentName
+            } on ${formatDate(appointmentForm.value.date)} at ${
+              appointmentForm.value.time
+            }`,
+            timestamp: serverTimestamp(),
+            performedBy: currentUser.value,
+          });
+
+          showNotification("Appointment scheduled successfully");
         }
-        await fetchAppointments();
+
         showScheduleModal.value = false;
         appointmentForm.value = { ...initialFormState };
         selectedStudent.value = "";
@@ -432,16 +511,36 @@ export default {
         editingId.value = null;
       } catch (error) {
         console.error("Error saving appointment:", error);
+        showNotification("Error saving appointment");
       }
     }
 
     async function handleStudentSubmit(data) {
       try {
-        await setDoc(doc(db, "students", data.studentId), data);
-        await fetchStudents();
+        const studentData = {
+          ...data,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+
+        await setDoc(doc(db, "students", data.studentId), studentData);
         showStudentModal.value = false;
+
+        await logActivity({
+          type: "student",
+          action: "create",
+          title: "New Student Added",
+          description: `Added new student ${data.firstName} ${data.lastName}`,
+          timestamp: serverTimestamp(),
+          performedBy: currentUser.value,
+        });
+
+        showNotification(
+          `Student ${data.firstName} ${data.lastName} has been added`
+        );
       } catch (error) {
         console.error("Error saving student:", error);
+        showNotification("Error saving student");
       }
     }
 
@@ -458,22 +557,48 @@ export default {
     async function deleteAppointment(id) {
       if (confirm("Are you sure you want to cancel this appointment?")) {
         try {
+          const appointment = appointments.value.find((a) => a.id === id);
           await deleteDoc(doc(db, "appointments", id));
-          await fetchAppointments();
+
+          await logActivity({
+            type: "appointment",
+            action: "delete",
+            title: "Appointment Cancelled",
+            description: `Cancelled appointment for ${
+              appointment.studentName
+            } on ${formatDate(appointment.date)} at ${appointment.time}`,
+            timestamp: serverTimestamp(),
+            performedBy: currentUser.value,
+          });
+
           if (currentIndex.value >= upcomingAppointments.value.length) {
             currentIndex.value = Math.max(
               0,
               upcomingAppointments.value.length - 1
             );
           }
+
+          showNotification("Appointment cancelled successfully");
         } catch (error) {
           console.error("Error deleting appointment:", error);
+          showNotification("Error cancelling appointment");
         }
       }
     }
 
-    fetchAppointments();
-    fetchStudents();
+    onMounted(() => {
+      listenToAppointments();
+      listenToStudents();
+    });
+
+    onUnmounted(() => {
+      if (unsubscribeAppointments) {
+        unsubscribeAppointments();
+      }
+      if (unsubscribeStudents) {
+        unsubscribeStudents();
+      }
+    });
 
     return {
       appointments,
@@ -491,6 +616,9 @@ export default {
       timeSlotOptions,
       studentOptions,
       currentIndex,
+      showToast,
+      toastMessage,
+      currentUser,
       formatDate,
       showModal,
       submitAppointment,

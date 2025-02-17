@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="modelValue"
-    class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
+    class="fixed inset-0 z-50 bg-text/50 flex justify-center items-center"
     @click="handleBackgroundClick"
   >
     <div
@@ -17,19 +17,7 @@
           Medication
         </h2>
         <button @click="closeModal" class="text-gray-500 hover:text-gray-700">
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M6 18L18 6M6 6l12 12"
-            />
-          </svg>
+          <XMarkIcon class="w-6 h-6" />
         </button>
       </div>
 
@@ -50,11 +38,16 @@
             </div>
             <div>
               <label class="block mb-1">Category</label>
-              <Dropdown
+              <select
                 v-model="formData.category"
-                :options="categoryOptions"
-                class="w-full"
-              />
+                class="w-full px-4 py-2 rounded-lg bg-graytint"
+                required
+              >
+                <option value="">Select Category</option>
+                <option v-for="category in categories" :key="category">
+                  {{ category }}
+                </option>
+              </select>
             </div>
             <div>
               <label class="block mb-1">Dosage Form</label>
@@ -155,13 +148,13 @@
           <button
             type="button"
             @click="closeModal"
-            class="px-4 py-2 bg-gray-300 rounded-full hover:bg-gray-400"
+            class="px-6 py-2 bg-gray-300 rounded-full hover:bg-gray-400"
           >
             Cancel
           </button>
           <button
             type="submit"
-            class="px-4 py-2 bg-blue1 text-white rounded-full hover:bg-blue-700"
+            class="px-6 py-2 bg-blue1 text-white rounded-full hover:bg-blue-700"
           >
             {{ submitButtonText }}
           </button>
@@ -173,7 +166,7 @@
 
 <script>
 import { ref, computed, watch } from "vue";
-import Dropdown from "@/components/Dropdown.vue";
+import { XMarkIcon } from "@heroicons/vue/24/solid";
 
 const categories = [
   "Analgesics",
@@ -188,7 +181,7 @@ const categories = [
 export default {
   name: "MedicationModal",
   components: {
-    Dropdown,
+    XMarkIcon,
   },
   props: {
     modelValue: Boolean,
@@ -206,13 +199,6 @@ export default {
     const submitButtonText = computed(() => {
       if (props.isStockAdjustment) return "Update Stock";
       return props.isEditing ? "Update Medication" : "Add Medication";
-    });
-
-    const categoryOptions = computed(() => {
-      return [
-        { value: "", label: "Select Category" },
-        ...categories.map((category) => ({ value: category, label: category })),
-      ];
     });
 
     watch(
@@ -233,13 +219,14 @@ export default {
       }
     }
 
-    function submitForm() {
+    async function submitForm() {
       emit("submit", formData.value);
+      closeModal();
     }
 
     return {
       formData,
-      categoryOptions,
+      categories,
       submitButtonText,
       closeModal,
       handleBackgroundClick,

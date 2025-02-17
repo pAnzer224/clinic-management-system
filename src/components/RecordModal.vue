@@ -87,12 +87,24 @@
             <!-- Student Selection (only show when adding new record) -->
             <div v-if="!isEditing" class="space-y-4">
               <h3 class="font-satoshi-bold">Student Information</h3>
-              <Dropdown
-                v-model="formData.student"
-                :options="studentOptions"
-                placeholder="Select Student"
-                required
-              />
+              <div>
+                <select
+                  v-model="formData.student"
+                  class="w-full px-4 py-2 rounded-lg bg-graytint"
+                  required
+                >
+                  <option value="">Select Student</option>
+                  <option
+                    v-for="student in students"
+                    :key="student.studentId"
+                    :value="student"
+                  >
+                    {{ student.firstName }} {{ student.lastName }} ({{
+                      student.studentId
+                    }})
+                  </option>
+                </select>
+              </div>
             </div>
 
             <!-- Vital Signs -->
@@ -169,11 +181,19 @@
               <!-- Medications -->
               <div class="space-y-2">
                 <div class="flex gap-2">
-                  <input
+                  <select
                     v-model="newMedication.name"
-                    placeholder="Medicine name"
                     class="flex-1 px-4 py-2 rounded-lg bg-graytint"
-                  />
+                  >
+                    <option value="">Select Medicine</option>
+                    <option
+                      v-for="med in medications"
+                      :key="med.id"
+                      :value="med.name"
+                    >
+                      {{ med.name }} ({{ med.strength }})
+                    </option>
+                  </select>
                   <input
                     v-model="newMedication.dosage"
                     placeholder="Dosage"
@@ -185,6 +205,14 @@
                     class="px-4 py-2 bg-blue1 text-white rounded-full"
                   >
                     Add
+                  </button>
+                  <button
+                    type="button"
+                    @click="showMedicationsModal = true"
+                    class="p-2 bg-gray-200 text-gray-700 rounded-full"
+                    title="Add New Medicine"
+                  >
+                    <PlusIcon class="w-5 h-5" />
                   </button>
                 </div>
                 <div class="space-y-2">
@@ -221,12 +249,16 @@
                   type="date"
                   class="w-full px-4 py-2 rounded-lg bg-graytint"
                 />
-                <Dropdown
+                <select
                   v-model="formData.status"
-                  :options="statusOptions"
-                  placeholder="Select Status"
+                  class="w-full px-4 py-2 rounded-lg bg-graytint"
                   required
-                />
+                >
+                  <option value="">Select Status</option>
+                  <option>Active</option>
+                  <option>Completed</option>
+                  <option>Follow-up Required</option>
+                </select>
               </div>
             </div>
 
@@ -251,22 +283,30 @@
       </div>
     </div>
   </div>
+
+  <!-- Medications Modal -->
+  <MedicationsModal
+    v-model="showMedicationsModal"
+    :initial-form-data="{}"
+    @submit="handleMedicationSubmit"
+  />
 </template>
 
 <script>
-import { ref, watch, computed } from "vue";
+import { ref, watch, onMounted } from "vue";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import { useCRUD } from "@/utils/firebaseCRUD";
-import { XMarkIcon, EyeIcon } from "@heroicons/vue/24/solid";
-import Dropdown from "@/components/Dropdown.vue";
+import { XMarkIcon, EyeIcon, PlusIcon } from "@heroicons/vue/24/solid";
+import MedicationsModal from "./MedicationsModal.vue";
 
 export default {
   name: "RecordModal",
   components: {
     XMarkIcon,
     EyeIcon,
-    Dropdown,
+    PlusIcon,
+    MedicationsModal,
   },
   props: {
     modelValue: Boolean,
@@ -283,23 +323,13 @@ export default {
   emits: ["update:modelValue", "submit"],
   setup(props, { emit }) {
     const { addItem, updateItem } = useCRUD("medicalRecords");
+    const { getItems, addItem: addMedicationItem } = useCRUD("medications");
     const formData = ref({});
     const newSymptom = ref("");
     const newMedication = ref({ name: "", dosage: "" });
     const studentDetails = ref({});
-
-    const studentOptions = computed(() => {
-      return props.students.map((student) => ({
-        value: student,
-        label: `${student.firstName} ${student.lastName} (${student.studentId})`,
-      }));
-    });
-
-    const statusOptions = [
-      { value: "Active", label: "Active" },
-      { value: "Completed", label: "Completed" },
-      { value: "Follow-up Required", label: "Follow-up Required" },
-    ];
+    const medications = ref([]);
+    const showMedicationsModal = ref(false);
 
     const documents = [
       { field: "medicalCertificate", label: "Medical Certificate" },
@@ -309,6 +339,10 @@ export default {
       { field: "drugTestReport", label: "Drug Test Report" },
       { field: "dentalHealthChart", label: "Dental Health Chart" },
     ];
+
+    onMounted(async () => {
+      await fetchMedications();
+    });
 
     watch(
       () => props.initialFormData,
@@ -324,6 +358,15 @@ export default {
       },
       { immediate: true, deep: true }
     );
+
+    async function fetchMedications() {
+      try {
+        const items = await getItems();
+        medications.value = items;
+      } catch (error) {
+        console.error("Error fetching medications:", error);
+      }
+    }
 
     async function fetchStudentData(studentId) {
       try {
@@ -376,6 +419,16 @@ export default {
       formData.value.medications.splice(index, 1);
     }
 
+    async function handleMedicationSubmit(medicationData) {
+      try {
+        await addMedicationItem(medicationData);
+        await fetchMedications();
+        showMedicationsModal.value = false;
+      } catch (error) {
+        console.error("Error adding new medication:", error);
+      }
+    }
+
     function viewDocument(field) {
       if (studentDetails.value.documents?.[field]) {
         const newWindow = window.open();
@@ -425,8 +478,8 @@ export default {
       documents,
       newSymptom,
       newMedication,
-      studentOptions,
-      statusOptions,
+      medications,
+      showMedicationsModal,
       addSymptom,
       removeSymptom,
       addMedication,
@@ -435,6 +488,7 @@ export default {
       closeModal,
       handleBackgroundClick,
       submitForm,
+      handleMedicationSubmit,
     };
   },
 };

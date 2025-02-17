@@ -1,7 +1,7 @@
 <template>
   <div
     v-if="modelValue"
-    class="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
+    class="fixed inset-0 z-50 bg-text/50 flex justify-center items-center"
     @click="handleBackgroundClick"
   >
     <div
@@ -62,26 +62,89 @@
             </div>
           </div>
 
-          <div
-            class="mt-4 bg-graytint/50 rounded-xl p-4 overflow-y-scroll no-scrollbar flex-grow"
-          >
-            <h3 class="font-satoshi-bold mb-4 sticky top-0 bg-graytint/50 z-10">
-              Documents
-            </h3>
-            <div class="space-y-2">
-              <div
-                v-for="(label, key) in documentLabels"
-                :key="key"
-                class="flex justify-between items-center p-3 bg-white rounded-lg hover:bg-gray-50"
+          <div class="mt-4 space-y-4 flex-grow overflow-y-scroll no-scrollbar">
+            <div class="bg-graytint/50 rounded-xl">
+              <button
+                @click="toggleAccordion('documents')"
+                class="w-full p-4 flex justify-between items-center font-satoshi-bold"
               >
-                <span class="text-sm">{{ label }}</span>
-                <button
-                  v-if="formData.documents[key]"
-                  @click="viewDocument(formData.documents[key])"
-                  class="text-blue1"
+                Documents
+                <ChevronDownIcon
+                  :class="[
+                    'w-5 h-5 transition-transform',
+                    activeAccordion === 'documents' ? 'rotate-180' : '',
+                  ]"
+                />
+              </button>
+              <div
+                v-show="activeAccordion === 'documents'"
+                class="p-4 pt-0 space-y-2"
+              >
+                <div
+                  v-for="(label, key) in documentLabels"
+                  :key="key"
+                  class="flex justify-between items-center p-3 bg-white rounded-lg hover:bg-gray-50"
                 >
-                  <EyeIcon class="w-5 h-5" />
-                </button>
+                  <span class="text-sm">{{ label }}</span>
+                  <button
+                    v-if="formData.documents[key]"
+                    @click="viewDocument(formData.documents[key])"
+                    class="text-blue1"
+                  >
+                    <EyeIcon class="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="bg-graytint/50 rounded-xl">
+              <button
+                @click="toggleAccordion('appointments')"
+                class="w-full p-4 flex justify-between items-center font-satoshi-bold"
+              >
+                Appointments
+                <ChevronDownIcon
+                  :class="[
+                    'w-5 h-5 transition-transform',
+                    activeAccordion === 'appointments' ? 'rotate-180' : '',
+                  ]"
+                />
+              </button>
+              <div
+                v-show="activeAccordion === 'appointments'"
+                class="p-4 pt-0 space-y-4"
+              >
+                <div v-if="upcomingAppointments.length > 0">
+                  <h4 class="text-sm font-medium mb-2">Upcoming</h4>
+                  <div class="space-y-2">
+                    <div
+                      v-for="appointment in upcomingAppointments"
+                      :key="appointment.id"
+                      class="bg-white p-3 rounded-lg"
+                    >
+                      <p class="font-medium">{{ appointment.type }}</p>
+                      <p class="text-sm text-gray-600">
+                        {{ formatDate(appointment.date) }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="concludedAppointments.length > 0">
+                  <h4 class="text-sm font-medium mb-2">Concluded</h4>
+                  <div class="space-y-2">
+                    <div
+                      v-for="appointment in concludedAppointments"
+                      :key="appointment.id"
+                      class="bg-white p-3 rounded-lg"
+                    >
+                      <p class="font-medium">{{ appointment.type }}</p>
+                      <p class="text-sm text-gray-600">
+                        {{ formatDate(appointment.date) }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -292,7 +355,7 @@
 
   <div
     v-if="showHealthExamModal"
-    class="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
+    class="fixed inset-0 bg-text/50 flex justify-center items-center z-50"
   >
     <div class="bg-white rounded-2xl p-8 w-[50vw] h-[90vh] overflow-hidden">
       <HealthExamForm :onSubmit="handleHealthExamSubmit" />
@@ -307,9 +370,13 @@
 </template>
 
 <script>
-import { ref, watch } from "vue";
-import { serverTimestamp } from "firebase/firestore";
-import { XMarkIcon, PencilIcon, EyeIcon } from "@heroicons/vue/24/solid";
+import { ref, watch, computed } from "vue";
+import {
+  XMarkIcon,
+  PencilIcon,
+  EyeIcon,
+  ChevronDownIcon,
+} from "@heroicons/vue/24/solid";
 import { handleImageUpload } from "@/utils/image-utils";
 import { handleDocumentUpload } from "@/utils/document-upload-utils";
 import { useCRUD } from "@/utils/firebaseCRUD";
@@ -358,6 +425,7 @@ export default {
     XMarkIcon,
     PencilIcon,
     EyeIcon,
+    ChevronDownIcon,
     HealthExamForm,
     Dropdown,
   },
@@ -368,13 +436,30 @@ export default {
       type: Object,
       required: true,
     },
+    appointments: {
+      type: Array,
+      default: () => [],
+    },
   },
   emits: ["update:modelValue", "submit"],
   setup(props, { emit }) {
-    const { addItem, updateItem } = useCRUD("students");
     const fileInput = ref(null);
     const imagePreview = ref(null);
     const showHealthExamModal = ref(false);
+    const activeAccordion = ref(null);
+
+    const upcomingAppointments = computed(() => {
+      return props.appointments.filter(
+        (apt) => new Date(apt.date) > new Date()
+      );
+    });
+
+    const concludedAppointments = computed(() => {
+      return props.appointments.filter(
+        (apt) => new Date(apt.date) <= new Date()
+      );
+    });
+
     const formData = ref({
       profileImage: "",
       personalInfo: {
@@ -450,6 +535,16 @@ export default {
       { immediate: true, deep: true }
     );
 
+    function formatDate(date) {
+      return new Date(date).toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
     async function handleImageChange(event) {
       const file = event.target.files[0];
       if (file) {
@@ -501,17 +596,15 @@ export default {
         profileImage: formData.value.profileImage,
         documents: formData.value.documents,
         id: formData.value.personalInfo.studentId,
-        updatedAt: serverTimestamp(),
       };
 
-      if (!props.isEditing) {
-        submissionData.createdAt = serverTimestamp();
-        await addItem(submissionData);
-      } else {
-        await updateItem(submissionData);
-      }
-
       closeModal();
+      emit("submit", submissionData);
+    }
+
+    function toggleAccordion(section) {
+      activeAccordion.value =
+        activeAccordion.value === section ? null : section;
     }
 
     return {
@@ -521,6 +614,9 @@ export default {
       documentLabels,
       acceptedDocumentTypes,
       showHealthExamModal,
+      activeAccordion,
+      upcomingAppointments,
+      concludedAppointments,
       handleImageChange,
       handleDocumentChange,
       viewDocument,
@@ -528,9 +624,11 @@ export default {
       handleBackgroundClick,
       submitForm,
       handleHealthExamSubmit,
+      formatDate,
       courseOptions,
       yearLevelOptions,
       sexOptions,
+      toggleAccordion,
     };
   },
 };

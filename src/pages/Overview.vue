@@ -57,33 +57,57 @@
 
     <!-- Recent Activity -->
     <div class="bg-white p-6 rounded-2xl shadow-sm">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-lg font-satoshi-medium">Recent Activity</h2>
-        <button
-          class="text-blue1 text-sm hover:underline"
-          @click="viewAllActivities"
-        >
-          View All
-        </button>
-      </div>
-      <div class="space-y-4">
+      <h2 class="text-lg font-satoshi-medium mb-4">Recent Activity</h2>
+      <div class="max-h-[400px] overflow-y-auto">
         <div
-          v-for="activity in recentActivities"
+          v-for="(activity, index) in sortedActivities"
           :key="activity.id"
-          class="flex items-start gap-4 p-4 rounded-lg bg-gray-50"
+          class="flex items-start gap-4 p-4"
+          :class="{
+            'border-b border-gray-200': index !== sortedActivities.length - 1,
+          }"
         >
           <div
             class="w-10 h-10 rounded-full bg-blue1/10 flex items-center justify-center flex-shrink-0"
           >
-            <component :is="activity.icon" class="h-5 w-5 text-blue1" />
+            <component
+              :is="getActivityIcon(activity.type, activity.action)"
+              class="h-5 w-5 text-blue1"
+            />
           </div>
-          <div>
+          <div class="flex-grow">
             <p class="font-medium">{{ activity.title }}</p>
             <p class="text-sm text-gray-600">{{ activity.description }}</p>
-            <p class="text-xs text-gray-400 mt-1">
-              {{ formatTimeAgo(activity.timestamp) }}
-            </p>
+            <div class="text-xs text-gray-400 mt-1 flex gap-2">
+              <span>{{ formatTimeAgo(activity.timestamp) }}</span>
+              <span>•</span>
+              <span
+                >by
+                {{
+                  currentUser.staffId && activity.performedBy?.role === "admin"
+                    ? "Admin"
+                    : activity.performedBy?.name || "Unknown User"
+                }}{{
+                  !currentUser.staffId || activity.performedBy?.role !== "admin"
+                    ? ` (${activity.performedBy?.role})`
+                    : ""
+                }}</span
+              >
+            </div>
           </div>
+          <button
+            v-if="currentUser.role === 'admin'"
+            @click="deleteActivity(activity.id)"
+            class="text-red-500 hover:text-red-700 p-2 hover:bg-red-100 rounded-full"
+          >
+            <Trash2 class="h-5 w-5" />
+          </button>
+        </div>
+        <div
+          v-if="sortedActivities.length === 0"
+          class="text-center text-gray-500 py-4"
+        >
+          No recent activities
         </div>
       </div>
     </div>
@@ -91,13 +115,17 @@
 </template>
 
 <script>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import {
   collection,
   onSnapshot,
   query,
   orderBy,
   limit,
+  where,
+  Timestamp,
+  deleteDoc,
+  doc,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import VueApexCharts from "vue3-apexcharts";
@@ -107,6 +135,9 @@ import {
   PillIcon,
   ClipboardIcon,
   UserPlusIcon,
+  PencilIcon,
+  Trash2,
+  TrashIcon,
   FileTextIcon,
   ActivityIcon,
 } from "lucide-vue-next";
@@ -122,8 +153,13 @@ export default {
     UserPlusIcon,
     FileTextIcon,
     ActivityIcon,
+    TrashIcon,
+    Trash2,
   },
   setup() {
+    const currentUser = ref(
+      JSON.parse(localStorage.getItem("currentUser")) || {}
+    );
     const stats = ref([
       {
         title: "Total Students",
@@ -164,14 +200,7 @@ export default {
       xaxis: {
         categories: ["BSCRIM", "BEED", "BSED", "BSIT", "BSAB", "HM"],
       },
-      colors: [
-        "#3B82F6",
-        "#10B981",
-        "#F59E0B",
-        "#EF4444",
-        "#8B5CF6",
-        "#EC4899",
-      ],
+      colors: ["#3B82F6"],
       legend: {
         position: "bottom",
       },
@@ -215,6 +244,11 @@ export default {
     ]);
 
     const recentActivities = ref([]);
+    const sortedActivities = computed(() => {
+      return [...recentActivities.value].sort((a, b) => {
+        return b.timestamp - a.timestamp;
+      });
+    });
 
     const fetchStats = () => {
       // Students count
@@ -270,35 +304,75 @@ export default {
       const activitiesQuery = query(
         collection(db, "activities"),
         orderBy("timestamp", "desc"),
-        limit(5)
+        limit(6)
       );
 
       onSnapshot(activitiesQuery, (snapshot) => {
         recentActivities.value = snapshot.docs.map((doc) => ({
           id: doc.id,
           ...doc.data(),
-          icon: getActivityIcon(doc.data().type),
+          timestamp:
+            doc.data().timestamp instanceof Timestamp
+              ? doc.data().timestamp.toDate()
+              : new Date(doc.data().timestamp),
         }));
       });
     };
 
-    const getActivityIcon = (type) => {
-      const icons = {
-        student: UserPlusIcon,
-        record: FileTextIcon,
-        appointment: CalendarIcon,
-        default: ActivityIcon,
-      };
-      return icons[type] || icons.default;
+    const deleteActivity = async (activityId) => {
+      if (!confirm("Are you sure you want to delete this activity?")) return;
+
+      try {
+        await deleteDoc(doc(db, "activities", activityId));
+      } catch (error) {
+        console.error("Error deleting activity:", error);
+      }
+    };
+
+    const getActivityIcon = (type, action) => {
+      if (type === "student") {
+        switch (action) {
+          case "create":
+            return UserPlusIcon;
+          case "update":
+            return PencilIcon;
+          case "delete":
+            return TrashIcon;
+          default:
+            return UsersIcon;
+        }
+      }
+      if (type === "record") return FileTextIcon;
+      if (type === "appointment") return CalendarIcon;
+      return ActivityIcon;
     };
 
     const formatTimeAgo = (timestamp) => {
-      // Add your time formatting logic here
-      return new Date(timestamp).toLocaleDateString();
-    };
+      if (!timestamp) return "";
 
-    const viewAllActivities = () => {
-      // Add your navigation logic here
+      const seconds = Math.floor((new Date() - timestamp) / 1000);
+
+      let interval = Math.floor(seconds / 31536000);
+      if (interval >= 1)
+        return interval + " year" + (interval === 1 ? "" : "s") + " ago";
+
+      interval = Math.floor(seconds / 2592000);
+      if (interval >= 1)
+        return interval + " month" + (interval === 1 ? "" : "s") + " ago";
+
+      interval = Math.floor(seconds / 86400);
+      if (interval >= 1)
+        return interval + " day" + (interval === 1 ? "" : "s") + " ago";
+
+      interval = Math.floor(seconds / 3600);
+      if (interval >= 1)
+        return interval + " hour" + (interval === 1 ? "" : "s") + " ago";
+
+      interval = Math.floor(seconds / 60);
+      if (interval >= 1)
+        return interval + " minute" + (interval === 1 ? "" : "s") + " ago";
+
+      return "just now";
     };
 
     onMounted(() => {
@@ -314,7 +388,10 @@ export default {
       appointmentChartSeries,
       recentActivities,
       formatTimeAgo,
-      viewAllActivities,
+      getActivityIcon,
+      currentUser,
+      sortedActivities,
+      deleteActivity,
     };
   },
 };

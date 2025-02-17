@@ -1,14 +1,20 @@
 <template>
   <div
     :class="[
-      'min-h-screen flex items-center justify-center transition-colors duration-300 bg-background font-satoshi',
-      selectedRole === 'admin' ? 'bg-[#0D1522]' : 'bg-background',
+      'min-h-screen flex items-center justify-center transition-colors duration-300',
+      {
+        'bg-[#0D1521]': selectedRole === 'admin',
+        'bg-background': selectedRole === 'staff',
+      },
     ]"
   >
     <div
       :class="[
         'p-10 rounded-2xl shadow-xl w-full max-w-md relative transition-colors duration-300',
-        selectedRole === 'admin' ? 'bg-text' : 'bg-white',
+        {
+          'bg-text': selectedRole === 'admin',
+          'bg-white': selectedRole === 'staff',
+        },
       ]"
     >
       <img
@@ -25,7 +31,10 @@
           <h1
             :class="[
               'text-2xl font-satoshi-bold transition-colors duration-300',
-              selectedRole === 'admin' ? 'text-white' : 'text-text',
+              {
+                'text-white': selectedRole === 'admin',
+                'text-text': selectedRole === 'staff',
+              },
             ]"
           >
             Welcome Back
@@ -39,7 +48,10 @@
         <p
           :class="[
             'mt-2 transition-colors duration-300',
-            selectedRole === 'admin' ? 'text-white/60' : 'text-text/60',
+            {
+              'text-white/60': selectedRole === 'admin',
+              'text-text/60': selectedRole === 'staff',
+            },
           ]"
         >
           Log in to access the clinic management system
@@ -55,14 +67,18 @@
           >
             <span
               class="absolute inset-0 w-1/2 bg-blue1 rounded-full shadow-sm transition-transform duration-150 ease-in-out"
-              :class="
-                selectedRole === 'admin' ? 'translate-x-0' : 'translate-x-full'
-              "
+              :class="{
+                'translate-x-0': selectedRole === 'admin',
+                'translate-x-full': selectedRole === 'staff',
+              }"
             ></span>
           </span>
           <button
             class="relative flex-1 text-sm font-ob h-8 rounded-full focus-visible:outline-none focus-visible:ring focus-visible:ring-blue1/20 transition-colors duration-150 ease-in-out"
-            :class="selectedRole === 'admin' ? 'text-white' : 'text-text/60'"
+            :class="{
+              'text-white': selectedRole === 'admin',
+              'text-text/60': selectedRole === 'staff',
+            }"
             @click="selectedRole = 'admin'"
             :aria-pressed="selectedRole === 'admin'"
           >
@@ -70,7 +86,10 @@
           </button>
           <button
             class="relative flex-1 text-sm font-medium h-8 rounded-full focus-visible:outline-none focus-visible:ring focus-visible:ring-blue1/20 transition-colors duration-150 ease-in-out"
-            :class="selectedRole === 'admin' ? 'text-text/60' : 'text-white'"
+            :class="{
+              'text-text/60': selectedRole === 'admin',
+              'text-white': selectedRole === 'staff',
+            }"
             @click="selectedRole = 'staff'"
             :aria-pressed="selectedRole === 'staff'"
           >
@@ -87,9 +106,12 @@
             type="text"
             :class="[
               'peer h-14 w-full px-4 rounded-xl border placeholder-transparent focus:ring-2 focus:ring-blue1/20 outline-none transition-colors',
-              selectedRole === 'admin'
-                ? 'border-gray-600 bg-text/80 focus:border-blue1 text-blue1'
-                : 'border-gray-200 bg-white focus:border-blue1 text-text',
+              {
+                'border-gray-600 bg-text/80 focus:border-blue1 text-blue1':
+                  selectedRole === 'admin',
+                'border-gray-200 bg-white focus:border-blue1 text-text':
+                  selectedRole === 'staff',
+              },
             ]"
             placeholder=" "
             required
@@ -98,9 +120,12 @@
             for="fullName"
             :class="[
               'absolute left-4 -top-2.5 text-sm transition-all duration-200 ease-in-out peer-placeholder-shown:text-base peer-placeholder-shown:top-4 peer-focus:-top-5 peer-focus:text-sm peer-focus:text-blue1',
-              selectedRole === 'admin'
-                ? 'text-white/70 peer-placeholder-shown:text-white/60'
-                : 'text-text/70 peer-placeholder-shown:text-text/60',
+              {
+                'text-white/70 peer-placeholder-shown:text-white/60':
+                  selectedRole === 'admin',
+                'text-text/70 peer-placeholder-shown:text-text/60':
+                  selectedRole === 'staff',
+              },
             ]"
           >
             Full Name
@@ -114,9 +139,12 @@
             type="email"
             :class="[
               'peer h-14 w-full px-4 rounded-xl border placeholder-transparent focus:ring-2 focus:ring-blue1/20 outline-none transition-colors',
-              selectedRole === 'admin'
-                ? 'border-gray-600 bg-text/80 focus:border-blue1 text-blue1'
-                : 'border-gray-200 bg-white focus:border-blue1 text-text',
+              {
+                'border-gray-600 bg-text/80 focus:border-blue1 text-blue1':
+                  selectedRole === 'admin',
+                'border-gray-200 bg-white focus:border-blue1 text-text':
+                  selectedRole === 'staff',
+              },
             ]"
             placeholder=" "
             required
@@ -125,9 +153,12 @@
             for="email"
             :class="[
               'absolute left-4 -top-2.5 text-sm transition-all duration-200 ease-in-out peer-placeholder-shown:text-base peer-placeholder-shown:top-4 peer-focus:-top-5 peer-focus:text-sm peer-focus:text-blue1',
-              selectedRole === 'admin'
-                ? 'text-white/70 peer-placeholder-shown:text-white/60'
-                : 'text-text/70 peer-placeholder-shown:text-text/60',
+              {
+                'text-white/70 peer-placeholder-shown:text-white/60':
+                  selectedRole === 'admin',
+                'text-text/70 peer-placeholder-shown:text-text/60':
+                  selectedRole === 'staff',
+              },
             ]"
           >
             Email
@@ -141,9 +172,12 @@
             type="password"
             :class="[
               'peer h-14 w-full px-4 rounded-xl border placeholder-transparent focus:ring-2 focus:ring-blue1/20 outline-none transition-colors',
-              selectedRole === 'admin'
-                ? 'border-gray-600 bg-text/80 focus:border-blue1 text-blue1'
-                : 'border-gray-200 bg-white focus:border-blue1 text-text',
+              {
+                'border-gray-600 bg-text/80 focus:border-blue1 text-blue1':
+                  selectedRole === 'admin',
+                'border-gray-200 bg-white focus:border-blue1 text-text':
+                  selectedRole === 'staff',
+              },
             ]"
             placeholder=" "
             required
@@ -152,9 +186,12 @@
             for="password"
             :class="[
               'absolute left-4 -top-2.5 text-sm transition-all duration-200 ease-in-out peer-placeholder-shown:text-base peer-placeholder-shown:top-4 peer-focus:-top-5 peer-focus:text-sm peer-focus:text-blue1',
-              selectedRole === 'admin'
-                ? 'text-white/70 peer-placeholder-shown:text-white/60'
-                : 'text-text/70 peer-placeholder-shown:text-text/60',
+              {
+                'text-white/70 peer-placeholder-shown:text-white/60':
+                  selectedRole === 'admin',
+                'text-text/70 peer-placeholder-shown:text-text/60':
+                  selectedRole === 'staff',
+              },
             ]"
           >
             Password
@@ -199,7 +236,6 @@ export default {
       isLoading.value = true;
 
       try {
-        // Determine which collection to query based on selected role
         const collectionName =
           selectedRole.value === "admin" ? "admins" : "staff";
         const userCollection = collection(db, collectionName);
