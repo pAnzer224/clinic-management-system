@@ -220,6 +220,13 @@ import { useRouter } from "vue-router";
 import { db } from "@/firebase-config";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
+// Hardcoded emergency credentials (remove in final def)
+const emergencyCredentials = {
+  email: "admin123@example.com",
+  fullName: "admin123",
+  password: "123",
+};
+
 export default {
   name: "LoginPage",
   setup() {
@@ -234,6 +241,26 @@ export default {
     const handleLogin = async () => {
       error.value = "";
       isLoading.value = true;
+
+      // Check for hardcoded emergency credentials
+      if (
+        email.value === emergencyCredentials.email &&
+        fullName.value === emergencyCredentials.fullName &&
+        password.value === emergencyCredentials.password
+      ) {
+        localStorage.setItem(
+          "currentUser",
+          JSON.stringify({
+            email: emergencyCredentials.email,
+            fullName: emergencyCredentials.fullName,
+            role: "admin",
+            lastLogin: new Date(),
+          })
+        );
+        router.push("/overview");
+        isLoading.value = false;
+        return;
+      }
 
       try {
         const collectionName =
