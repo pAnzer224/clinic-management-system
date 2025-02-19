@@ -43,9 +43,9 @@
         />
       </div>
 
-      <!-- Monthly Appointments -->
+      <!-- weekly Appointments -->
       <div class="bg-white p-6 rounded-2xl shadow-sm">
-        <h2 class="text-lg font-satoshi-medium mb-4">Monthly Appointments</h2>
+        <h2 class="text-lg font-satoshi-medium mb-4">Weekly Appointments</h2>
         <apexchart
           type="area"
           height="350"
@@ -219,27 +219,41 @@ export default {
         toolbar: {
           show: false,
         },
+        stacked: false,
       },
       dataLabels: {
         enabled: false,
       },
       stroke: {
         curve: "smooth",
+        width: [2, 2, 2],
       },
+      colors: ["#3B82F6", "#EF4444", "#10B981"],
       xaxis: {
-        categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"],
+        categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
       },
       tooltip: {
         x: {
-          format: "MMM",
+          format: "dd",
         },
+      },
+      legend: {
+        position: "top",
       },
     };
 
     const appointmentChartSeries = ref([
       {
-        name: "Appointments",
-        data: [30, 40, 35, 50, 49, 60, 70],
+        name: "Regular Consultations",
+        data: [12, 15, 14, 16, 13, 8, 5],
+      },
+      {
+        name: "Emergency Cases",
+        data: [2, 1, 2, 1, 2, 3, 2],
+      },
+      {
+        name: "Follow-up Visits",
+        data: [6, 8, 7, 9, 6, 2, 1],
       },
     ]);
 

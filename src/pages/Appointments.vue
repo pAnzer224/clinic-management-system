@@ -555,18 +555,29 @@ export default {
     }
 
     async function deleteAppointment(id) {
-      if (confirm("Are you sure you want to cancel this appointment?")) {
+      if (confirm("Are you sure you want to delete this appointment?")) {
         try {
           const appointment = appointments.value.find((a) => a.id === id);
+          const appointmentDate = new Date(appointment.date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const isConcluded = appointmentDate < today;
+
           await deleteDoc(doc(db, "appointments", id));
 
           await logActivity({
             type: "appointment",
             action: "delete",
-            title: "Appointment Cancelled",
-            description: `Cancelled appointment for ${
-              appointment.studentName
-            } on ${formatDate(appointment.date)} at ${appointment.time}`,
+            title: isConcluded
+              ? "Concluded Appointment Deleted"
+              : "Appointment Cancelled",
+            description: `${
+              isConcluded
+                ? "Deleted concluded appointment"
+                : "Cancelled appointment"
+            } for ${appointment.studentName} on ${formatDate(
+              appointment.date
+            )} at ${appointment.time}`,
             timestamp: serverTimestamp(),
             performedBy: currentUser.value,
           });
@@ -578,10 +589,14 @@ export default {
             );
           }
 
-          showNotification("Appointment cancelled successfully");
+          showNotification(
+            isConcluded
+              ? "Concluded appointment deleted successfully"
+              : "Appointment cancelled successfully"
+          );
         } catch (error) {
           console.error("Error deleting appointment:", error);
-          showNotification("Error cancelling appointment");
+          showNotification("Error deleting appointment");
         }
       }
     }

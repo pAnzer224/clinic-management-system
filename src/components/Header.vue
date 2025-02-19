@@ -11,7 +11,11 @@
         />
         <router-link
           to="/overview"
-          class="text-lg font-satoshi-medium text-text/70 hover:text-text"
+          class="text-lg font-satoshi-medium"
+          :class="{
+            'text-text': $route.path === '/overview',
+            'text-text/70 hover:text-text': $route.path !== '/overview',
+          }"
         >
           Clinic Management System
         </router-link>
@@ -19,19 +23,30 @@
       <div class="flex items-center gap-4 sm:gap-6">
         <router-link
           to="/medications"
-          class="text-gray-600 hover:text-gray-900 hidden sm:block"
+          class="hidden sm:block"
+          :class="{
+            'text-blue1 font-satoshi-medium': $route.path === '/medications',
+            'text-gray-600 hover:text-gray-900': $route.path !== '/medications',
+          }"
           >Medications</router-link
         >
         <router-link
           to="/sops"
-          class="text-gray-600 hover:text-gray-900 hidden sm:block"
+          class="hidden sm:block"
+          :class="{
+            'text-blue1 font-satoshi-medium': $route.path === '/sops',
+            'text-gray-600 hover:text-gray-900': $route.path !== '/sops',
+          }"
           >SOPs</router-link
         >
-
         <router-link
-          to="/security"
-          class="text-gray-600 hover:text-gray-900 hidden sm:block"
-          >Security</router-link
+          to="/Settings"
+          class="hidden sm:block"
+          :class="{
+            'text-blue1 font-satoshi-medium ': $route.path === '/Settings',
+            'text-gray-600 hover:text-gray-900': $route.path !== '/Settings',
+          }"
+          >Settings</router-link
         >
         <button @click="toggleMenu" class="sm:hidden">
           <svg
@@ -54,19 +69,30 @@
     <div v-if="isMenuOpen" class="sm:hidden">
       <router-link
         to="/medications"
-        class="block px-4 py-2 text-gray-600 hover:text-gray-900"
+        class="block px-4 py-2"
+        :class="{
+          'text-blue1 font-satoshi-medium': $route.path === '/medications',
+          'text-gray-600 hover:text-gray-900': $route.path !== '/medications',
+        }"
         >Medications</router-link
       >
       <router-link
         to="/sops"
-        class="block px-4 py-2 text-gray-600 hover:text-gray-900"
+        class="block px-4 py-2"
+        :class="{
+          'text-blue1 font-satoshi-medium underli': $route.path === '/sops',
+          'text-gray-600 hover:text-gray-900': $route.path !== '/sops',
+        }"
         >SOPs</router-link
       >
-
       <router-link
-        to="/security"
-        class="block px-4 py-2 text-gray-600 hover:text-gray-900"
-        >Security</router-link
+        to="/settings"
+        class="block px-4 py-2"
+        :class="{
+          'text-blue1 font-satoshi-medium': $route.path === '/settings',
+          'text-gray-600 hover:text-gray-900': $route.path !== '/settings',
+        }"
+        >Settings</router-link
       >
     </div>
   </nav>

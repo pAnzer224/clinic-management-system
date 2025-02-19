@@ -7,25 +7,34 @@
         'lg:p-6 md:p-5 sm:p-4': true,
       }"
     >
-      <div class="flex items-center gap-3 mb-12 relative">
-        <div
-          class="w-8 h-8 rounded-full bg-blue1/10 overflow-hidden flex-shrink-0"
+      <div class="flex items-center mb-12 relative">
+        <router-link
+          to="/security"
+          class="flex items-center gap-3 p-2 -ml-2 rounded-full group hover:bg-blue3/10 transition-all duration-200 flex-grow"
         >
-          <img
-            v-if="currentUser.profileImage"
-            :src="currentUser.profileImage"
-            class="w-full h-full object-cover"
-            alt="Profile"
-          />
-        </div>
-        <span class="text-[13px] font-satoshi-medium text-text">
-          {{ currentUser.fullName }}
-        </span>
-        <span class="text-[10px] bg-blue1/10 text-blue1 px-2 py-1 rounded-full">
-          {{ currentUser.role }}
-        </span>
+          <div
+            class="w-8 h-8 rounded-full bg-blue1/10 overflow-hidden flex-shrink-0"
+          >
+            <img
+              v-if="currentUser.profileImage"
+              :src="currentUser.profileImage"
+              class="w-full h-full object-cover"
+              alt="Profile"
+            />
+          </div>
+          <span
+            class="text-[13px] font-satoshi-medium text-text group-hover:text-blue1"
+          >
+            {{ getUserId }}
+          </span>
+          <span
+            class="text-[10px] bg-blue1/10 text-blue1 px-2 py-1 rounded-full"
+          >
+            {{ currentUser.role }}
+          </span>
+        </router-link>
 
-        <div class="relative ml-auto">
+        <div class="relative ml-2" ref="menuContainer">
           <button
             @click="isMenuOpen = !isMenuOpen"
             class="text-text/70 rounded-full hover:bg-blue1/20 p-1"
@@ -105,12 +114,13 @@ import {
   CalendarIcon,
   DocumentTextIcon,
   BellIcon,
-  CogIcon,
+  ShieldCheckIcon,
   EllipsisVerticalIcon,
   ArrowRightOnRectangleIcon,
 } from "@heroicons/vue/24/solid";
 import { useRouter } from "vue-router";
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, onBeforeUnmount } from "vue";
+import { ShieldCheck } from "lucide-vue-next";
 
 export default {
   name: "Sidebar",
@@ -120,7 +130,7 @@ export default {
     CalendarIcon,
     DocumentTextIcon,
     BellIcon,
-    CogIcon,
+    ShieldCheckIcon,
     EllipsisVerticalIcon,
     ArrowRightOnRectangleIcon,
   },
@@ -128,12 +138,24 @@ export default {
     const router = useRouter();
     const isMenuOpen = ref(false);
     const currentUser = ref({});
+    const menuContainer = ref(null);
+
+    const handleClickOutside = (event) => {
+      if (menuContainer.value && !menuContainer.value.contains(event.target)) {
+        isMenuOpen.value = false;
+      }
+    };
 
     onMounted(() => {
       const userData = localStorage.getItem("currentUser");
       if (userData) {
         currentUser.value = JSON.parse(userData);
       }
+      document.addEventListener("click", handleClickOutside);
+    });
+
+    onBeforeUnmount(() => {
+      document.removeEventListener("click", handleClickOutside);
     });
 
     const handleLogout = () => {
@@ -146,6 +168,7 @@ export default {
       isMenuOpen,
       handleLogout,
       currentUser,
+      menuContainer,
     };
   },
   data() {
@@ -157,9 +180,9 @@ export default {
         { name: "Records", path: "/records", icon: "DocumentTextIcon" },
         { name: "Alerts", path: "/alerts", icon: "BellIcon" },
         {
-          name: "Settings",
-          path: "/settings",
-          icon: "CogIcon",
+          name: "Security",
+          path: "/security",
+          icon: "ShieldCheckIcon",
           adminOnly: true,
         },
       ],
@@ -173,6 +196,14 @@ export default {
         }
         return true;
       });
+    },
+    getUserId() {
+      if (this.currentUser.role === "admin") {
+        return this.currentUser.adminId;
+      } else if (this.currentUser.role === "staff") {
+        return this.currentUser.staffId;
+      }
+      return "";
     },
   },
 };

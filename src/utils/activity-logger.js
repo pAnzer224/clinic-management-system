@@ -18,7 +18,7 @@ export async function logActivity(data) {
       ...data,
       timestamp: data.timestamp || serverTimestamp(),
       performedBy: {
-        name: currentUser.fullName,
+        name: currentUser.adminId,
         id: currentUser.adminId || currentUser.staffId,
         role: role,
         email: currentUser.email,
