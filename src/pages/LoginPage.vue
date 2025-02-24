@@ -189,6 +189,7 @@ import { useRouter } from "vue-router";
 import { db } from "@/firebase-config";
 import { collection, getDocs, query, where } from "firebase/firestore";
 
+//Hardcoded credentials for testing
 const emergencyCredentials = {
   email: "admin123@example.com",
   password: "123",

@@ -29,6 +29,11 @@
             :options="yearFilterOptions"
             class="w-40"
           />
+          <Dropdown
+            v-model="filterSchoolYear"
+            :options="schoolYearFilterOptions"
+            class="w-52"
+          />
         </div>
 
         <div v-if="loading" class="flex justify-center items-center py-8">
@@ -44,11 +49,12 @@
             <table class="w-full table-fixed">
               <thead>
                 <tr class="text-left text-text/60">
-                  <th class="pb-4 w-1/5">Student ID</th>
-                  <th class="pb-4 w-2/5">Name</th>
-                  <th class="pb-4 w-1/5">Course</th>
-                  <th class="pb-4 w-1/12">Year</th>
-                  <th class="pb-4 w-1/12">Actions</th>
+                  <th class="pb-4 w-1/6">Student ID</th>
+                  <th class="pb-4 w-2/6">Name</th>
+                  <th class="pb-4 w-1/6">Course</th>
+                  <th class="pb-4 w-1/8">Year</th>
+                  <th class="pb-4 w-1/8">Acad. Year</th>
+                  <th class="pb-4 w-1/8">Actions</th>
                 </tr>
               </thead>
             </table>
@@ -68,7 +74,7 @@
                     :key="student.studentId"
                     class="border-t border-graytint/50"
                   >
-                    <td class="py-4 w-1/5">
+                    <td class="py-4 w-1/6">
                       <div class="flex items-center gap-4">
                         <div
                           class="w-10 h-10 rounded-full bg-blue1/10 overflow-hidden flex-shrink-0"
@@ -83,17 +89,18 @@
                         <span class="truncate">{{ student.studentId }}</span>
                       </div>
                     </td>
-                    <td class="w-2/5">
+                    <td class="w-2/6">
                       <div class="truncate">
                         {{ student.lastName }}, {{ student.firstName }}
                         {{ student.middleInitial }}
                       </div>
                     </td>
-                    <td class="w-1/5">
+                    <td class="w-1/6">
                       <div class="truncate">{{ student.course }}</div>
                     </td>
-                    <td class="w-1/12">{{ student.yearLevel }}</td>
-                    <td class="w-1/12 space-x-2">
+                    <td class="w-1/8">{{ student.yearLevel }}</td>
+                    <td class="w-1/8">{{ student.schoolYear }}</td>
+                    <td class="w-1/8 space-x-2">
                       <button
                         @click="editStudent(student)"
                         class="text-blue2/90 hover:text-blue1"
@@ -161,7 +168,15 @@ import { logActivity } from "@/utils/activity-logger";
 import { db } from "@/firebase-config";
 
 const YEAR_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
-const TABLE_HEADERS = ["Student ID", "Name", "Course", "Year Level", "Actions"];
+const SCHOOL_YEAR_OPTIONS = ["2023-2024", "2024-2025", "2025-2026"];
+const TABLE_HEADERS = [
+  "Student ID",
+  "Name",
+  "Course",
+  "Year Level",
+  "Academic Year",
+  "Actions",
+];
 
 const INITIAL_FORM = {
   studentId: "",
@@ -175,6 +190,7 @@ const INITIAL_FORM = {
   religion: "",
   course: "",
   yearLevel: "1st Year",
+  schoolYear: "",
   guardianName: "",
   guardianOccupation: "",
   guardianAddress: "",
@@ -209,6 +225,7 @@ export default {
 
     const searchQuery = ref("");
     const filterYear = ref("");
+    const filterSchoolYear = ref("");
     const showModal = ref(false);
     const isEditing = ref(false);
     const formData = ref({ ...INITIAL_FORM });
@@ -248,13 +265,24 @@ export default {
       ];
     });
 
+    const schoolYearFilterOptions = computed(() => {
+      return [
+        { value: "", label: "All Academic Years" },
+        ...SCHOOL_YEAR_OPTIONS.map((year) => ({ value: year, label: year })),
+      ];
+    });
+
     const filteredStudents = computed(() => {
       return students.value.filter((student) => {
         const matchesYear =
           !filterYear.value || student.yearLevel === filterYear.value;
+        const matchesSchoolYear =
+          !filterSchoolYear.value ||
+          student.schoolYear === filterSchoolYear.value;
         const searchLower = searchQuery.value.toLowerCase();
         return (
           matchesYear &&
+          matchesSchoolYear &&
           (!searchQuery.value ||
             student.lastName?.toLowerCase().includes(searchLower) ||
             student.firstName?.toLowerCase().includes(searchLower) ||
@@ -316,6 +344,7 @@ export default {
       try {
         const submitData = {
           ...data,
+          id: data.studentId,
           updatedAt: serverTimestamp(),
         };
 
@@ -353,12 +382,15 @@ export default {
       error,
       searchQuery,
       filterYear,
+      filterSchoolYear,
       showModal,
       isEditing,
       formData,
       filteredStudents,
       yearFilterOptions,
+      schoolYearFilterOptions,
       YEAR_OPTIONS,
+      SCHOOL_YEAR_OPTIONS,
       TABLE_HEADERS,
       showToast,
       toastMessage,

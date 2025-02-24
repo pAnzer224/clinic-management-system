@@ -61,7 +61,7 @@
 
           <div class="relative">
             <div
-              class="min-h-[calc(100vh-335px)] max-h-[calc(100vh-335px)] overflow-y-scroll no-scrollbar"
+              class="min-h-[calc(100.2vh-335px)] max-h-[calc(100.2vh-335px)] overflow-y-scroll no-scrollbar"
             >
               <table class="w-full table-fixed">
                 <tbody>
@@ -110,11 +110,11 @@
     </div>
 
     <RecordModal
-      v-if="showModal"
       v-model="showModal"
       :is-editing="isEditing"
       :initial-form-data="formData"
       :students="students"
+      :appointments="appointments"
       @submit="submitForm"
     />
 
@@ -242,7 +242,6 @@ export default {
     }
 
     function setupSnapshotListeners() {
-      // Setup records snapshot listener
       const recordsQuery = query(
         collection(db, "medicalRecords"),
         orderBy("date", "desc")
@@ -255,7 +254,6 @@ export default {
         }));
       });
 
-      // Setup health alerts snapshot listener
       const today = new Date();
       const alertsQuery = query(
         collection(db, "healthAlerts"),

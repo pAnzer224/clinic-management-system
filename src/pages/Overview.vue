@@ -34,7 +34,14 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <!-- Students by Course -->
       <div class="bg-white p-6 rounded-2xl shadow-sm">
-        <h2 class="text-lg font-satoshi-medium mb-4">Students by Course</h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-satoshi-medium">Students by Course</h2>
+          <Dropdown
+            v-model="selectedAcademicYear"
+            :options="academicYearOptions"
+            class="w-40"
+          />
+        </div>
         <apexchart
           type="bar"
           height="350"
@@ -115,7 +122,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, computed, watch } from "vue";
 import {
   collection,
   onSnapshot,
@@ -141,6 +148,7 @@ import {
   FileTextIcon,
   ActivityIcon,
 } from "lucide-vue-next";
+import Dropdown from "@/components/Dropdown.vue";
 
 export default {
   name: "Overview",
@@ -155,6 +163,7 @@ export default {
     ActivityIcon,
     TrashIcon,
     Trash2,
+    Dropdown,
   },
   setup() {
     const currentUser = ref(
@@ -186,6 +195,13 @@ export default {
         icon: ClipboardIcon,
       },
     ]);
+
+    const selectedAcademicYear = ref("2024-2025");
+    const academicYearOptions = [
+      { value: "2023-2024", label: "2023-2024" },
+      { value: "2024-2025", label: "2024-2025" },
+      { value: "2025-2026", label: "2025-2026" },
+    ];
 
     const courseChartOptions = {
       chart: {
@@ -264,11 +280,29 @@ export default {
       });
     });
 
+    // Watch for changes in selectedAcademicYear and update chart
+    watch(selectedAcademicYear, (newYear) => {
+      // Fetch students with the selected academic year
+      fetchStudentsByAcademicYear(newYear);
+    });
+
+    const fetchStudentsByAcademicYear = (academicYear) => {
+      const studentsQuery = query(
+        collection(db, "students"),
+        where("schoolYear", "==", academicYear)
+      );
+
+      onSnapshot(studentsQuery, (snapshot) => {
+        updateCourseChart(snapshot);
+      });
+    };
+
     const fetchStats = () => {
       // Students count
       onSnapshot(collection(db, "students"), (snapshot) => {
         stats.value[0].value = snapshot.size;
-        updateCourseChart(snapshot);
+        // Initial chart update on load (will be filtered by watch later)
+        updateCourseChart(snapshot, true);
       });
 
       // Today's appointments
@@ -294,7 +328,7 @@ export default {
       });
     };
 
-    const updateCourseChart = (snapshot) => {
+    const updateCourseChart = (snapshot, initialLoad = false) => {
       const courseCounts = {
         BSCRIM: 0,
         BEED: 0,
@@ -305,7 +339,13 @@ export default {
       };
 
       snapshot.forEach((doc) => {
-        const course = doc.data().course;
+        const data = doc.data();
+        // If this is the initial load, only count students from the selected academic year
+        if (initialLoad && data.schoolYear !== selectedAcademicYear.value) {
+          return;
+        }
+
+        const course = data.course;
         if (courseCounts.hasOwnProperty(course)) {
           courseCounts[course]++;
         }
@@ -392,6 +432,8 @@ export default {
     onMounted(() => {
       fetchStats();
       fetchRecentActivities();
+      // Initial load of students filtered by academic year
+      fetchStudentsByAcademicYear(selectedAcademicYear.value);
     });
 
     return {
@@ -406,6 +448,8 @@ export default {
       currentUser,
       sortedActivities,
       deleteActivity,
+      selectedAcademicYear,
+      academicYearOptions,
     };
   },
 };

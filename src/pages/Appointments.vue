@@ -45,10 +45,11 @@
                 class="appointment-slider"
                 :style="{ transform: `translateX(-${currentIndex * 100}%)` }"
               >
-                <div
+                <button
                   v-for="(appointment, index) in upcomingAppointments"
                   :key="appointment.id"
-                  class="p-4 bg-white border border-graytint rounded-xl hover:border-blue1 transition-colors w-full flex-shrink-0"
+                  @click="editAppointment(appointment)"
+                  class="p-4 bg-white border border-graytint rounded-xl hover:border-blue1 transition-colors w-full flex-shrink-0 text-left"
                 >
                   <div class="flex items-start justify-between mb-2">
                     <h3 class="font-satoshi-medium text-text">
@@ -76,7 +77,7 @@
                     <span>{{ appointment.time }}</span>
                     <span>{{ formatDate(appointment.date) }}</span>
                   </div>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -161,6 +162,7 @@
               <Dropdown
                 v-model="selectedStudent"
                 :options="studentOptions"
+                style="z-index: 9999"
                 placeholder="Select Student"
                 class="flex-1"
               />

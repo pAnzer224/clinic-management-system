@@ -38,16 +38,11 @@
             </div>
             <div>
               <label class="block mb-1">Category</label>
-              <select
+              <Dropdown
                 v-model="formData.category"
-                class="w-full px-4 py-2 rounded-lg bg-graytint"
-                required
-              >
-                <option value="">Select Category</option>
-                <option v-for="category in categories" :key="category">
-                  {{ category }}
-                </option>
-              </select>
+                :options="categoryOptions"
+                placeholder="Select Category"
+              />
             </div>
             <div>
               <label class="block mb-1">Dosage Form</label>
@@ -167,6 +162,7 @@
 <script>
 import { ref, computed, watch } from "vue";
 import { XMarkIcon } from "@heroicons/vue/24/solid";
+import Dropdown from "./Dropdown.vue";
 
 const categories = [
   "Analgesics",
@@ -182,6 +178,7 @@ export default {
   name: "MedicationModal",
   components: {
     XMarkIcon,
+    Dropdown,
   },
   props: {
     modelValue: Boolean,
@@ -195,6 +192,13 @@ export default {
   emits: ["update:modelValue", "submit"],
   setup(props, { emit }) {
     const formData = ref({});
+
+    const categoryOptions = computed(() => {
+      return categories.map((category) => ({
+        value: category,
+        label: category,
+      }));
+    });
 
     const submitButtonText = computed(() => {
       if (props.isStockAdjustment) return "Update Stock";
@@ -227,6 +231,7 @@ export default {
     return {
       formData,
       categories,
+      categoryOptions,
       submitButtonText,
       closeModal,
       handleBackgroundClick,

@@ -5,7 +5,10 @@
     @click="handleBackgroundClick"
   >
     <div
-      class="bg-white rounded-2xl p-8 shadow-lg w-[750px] max-h-[90vh] overflow-hidden"
+      :class="[
+        'bg-white rounded-2xl p-8 shadow-lg h-[90vh]',
+        isEditing ? 'w-[800px]' : 'w-[650px]',
+      ]"
       @click.stop
     >
       <div class="flex justify-between items-center mb-6">
@@ -19,8 +22,8 @@
 
       <div class="flex gap-6 h-[calc(90vh-88px)]">
         <!-- Left side: Student Information -->
-        <div v-if="isEditing" class="w-60 flex-shrink-0">
-          <div class="bg-graytint/50 rounded-xl p-4">
+        <div v-if="isEditing" class="w-60 flex-shrink-0 flex flex-col">
+          <div class="bg-graytint/50 rounded-xl p-4 sticky top-0 z-10">
             <h3 class="font-satoshi-bold mb-4">Student Information</h3>
             <div class="space-y-3">
               <div class="bg-white p-3 rounded-lg shadow-sm">
@@ -59,25 +62,13 @@
             </div>
           </div>
 
-          <!-- Documents Section -->
-          <div class="mt-4 bg-graytint/50 rounded-xl p-4">
-            <h3 class="font-satoshi-bold mb-4">Documents</h3>
-            <div class="space-y-2">
-              <div
-                v-for="doc in documents"
-                :key="doc.field"
-                class="flex justify-between items-center p-3 bg-white rounded-lg hover:bg-gray-50"
-              >
-                <span class="text-sm">{{ doc.label }}</span>
-                <button
-                  v-if="studentDetails.documents?.[doc.field]"
-                  @click="viewDocument(doc.field)"
-                  class="text-blue1"
-                >
-                  <EyeIcon class="w-5 h-5" />
-                </button>
-              </div>
-            </div>
+          <!-- StudentAccordion component -->
+          <div class="mt-4 flex-grow overflow-y-scroll no-scrollbar">
+            <StudentAccordion
+              :documents="studentDetails.documents || {}"
+              :documentLabels="documentLabels"
+              :studentId="studentDetails.studentId"
+            />
           </div>
         </div>
 
@@ -87,23 +78,19 @@
             <!-- Student Selection (only show when adding new record) -->
             <div v-if="!isEditing" class="space-y-4">
               <h3 class="font-satoshi-bold">Student Information</h3>
-              <div>
-                <select
+              <div class="flex items-center gap-2">
+                <Dropdown
                   v-model="formData.student"
-                  class="w-full px-4 py-2 rounded-lg bg-graytint"
-                  required
+                  :options="studentOptions"
+                  placeholder="Select Student"
+                />
+                <button
+                  type="button"
+                  @click="showStudentModal = true"
+                  class="bg-blue2 text-white p-2 rounded-full hover:bg-blue1"
                 >
-                  <option value="">Select Student</option>
-                  <option
-                    v-for="student in students"
-                    :key="student.studentId"
-                    :value="student"
-                  >
-                    {{ student.firstName }} {{ student.lastName }} ({{
-                      student.studentId
-                    }})
-                  </option>
-                </select>
+                  <PlusIcon class="size-3" />
+                </button>
               </div>
             </div>
 
@@ -181,19 +168,20 @@
               <!-- Medications -->
               <div class="space-y-2">
                 <div class="flex gap-2">
-                  <select
-                    v-model="newMedication.name"
-                    class="flex-1 px-4 py-2 rounded-lg bg-graytint"
-                  >
-                    <option value="">Select Medicine</option>
-                    <option
-                      v-for="med in medications"
-                      :key="med.id"
-                      :value="med.name"
+                  <div class="flex items-center gap-2 flex-1">
+                    <Dropdown
+                      v-model="newMedication.name"
+                      :options="medicationOptions"
+                      placeholder="Select Medicine"
+                    />
+                    <button
+                      type="button"
+                      @click="showMedicationsModal = true"
+                      class="bg-blue2 text-white p-2 rounded-full hover:bg-blue1"
                     >
-                      {{ med.name }} ({{ med.strength }})
-                    </option>
-                  </select>
+                      <PlusIcon class="size-3" />
+                    </button>
+                  </div>
                   <input
                     v-model="newMedication.dosage"
                     placeholder="Dosage"
@@ -205,14 +193,6 @@
                     class="px-4 py-2 bg-blue1 text-white rounded-full"
                   >
                     Add
-                  </button>
-                  <button
-                    type="button"
-                    @click="showMedicationsModal = true"
-                    class="p-2 bg-gray-200 text-gray-700 rounded-full"
-                    title="Add New Medicine"
-                  >
-                    <PlusIcon class="w-5 h-5" />
                   </button>
                 </div>
                 <div class="space-y-2">
@@ -249,16 +229,11 @@
                   type="date"
                   class="w-full px-4 py-2 rounded-lg bg-graytint"
                 />
-                <select
+                <Dropdown
                   v-model="formData.status"
-                  class="w-full px-4 py-2 rounded-lg bg-graytint"
-                  required
-                >
-                  <option value="">Select Status</option>
-                  <option>Active</option>
-                  <option>Completed</option>
-                  <option>Follow-up Required</option>
-                </select>
+                  :options="statusOptions"
+                  placeholder="Select Status"
+                />
               </div>
             </div>
 
@@ -287,26 +262,58 @@
   <!-- Medications Modal -->
   <MedicationsModal
     v-model="showMedicationsModal"
-    :initial-form-data="{}"
+    :initial-form-data="medicationFormData"
     @submit="handleMedicationSubmit"
+  />
+
+  <!-- Student Modal -->
+  <StudentModal
+    v-model="showStudentModal"
+    :is-editing="false"
+    :initial-form-data="studentFormData"
+    @submit="handleStudentSubmit"
   />
 </template>
 
 <script>
-import { ref, watch, onMounted } from "vue";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { ref, watch, onMounted, computed } from "vue";
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  doc,
+  setDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 import { db } from "@/firebase-config";
 import { useCRUD } from "@/utils/firebaseCRUD";
-import { XMarkIcon, EyeIcon, PlusIcon } from "@heroicons/vue/24/solid";
+import { XMarkIcon, PlusIcon } from "@heroicons/vue/24/solid";
 import MedicationsModal from "./MedicationsModal.vue";
+import StudentModal from "./StudentModal.vue";
+import StudentAccordion from "./StudentAccordion.vue";
+import { logActivity } from "@/utils/activity-logger";
+import Dropdown from "./Dropdown.vue";
+
+const documentLabels = {
+  medicalCertificate: "Medical Certificate",
+  urinalysisReport: "Urinalysis Report",
+  radiologicReport: "Radiologic Report",
+  hematologyReport: "Hematology Report",
+  drugTestReport: "Drug Test Report",
+  dentalHealthChart: "Dental Health Chart",
+  healthExam: "Health Examination Form",
+};
 
 export default {
   name: "RecordModal",
   components: {
     XMarkIcon,
-    EyeIcon,
     PlusIcon,
     MedicationsModal,
+    StudentModal,
+    StudentAccordion,
+    Dropdown,
   },
   props: {
     modelValue: Boolean,
@@ -323,22 +330,71 @@ export default {
   emits: ["update:modelValue", "submit"],
   setup(props, { emit }) {
     const { addItem, updateItem } = useCRUD("medicalRecords");
-    const { getItems, addItem: addMedicationItem } = useCRUD("medications");
     const formData = ref({});
     const newSymptom = ref("");
     const newMedication = ref({ name: "", dosage: "" });
     const studentDetails = ref({});
     const medications = ref([]);
     const showMedicationsModal = ref(false);
+    const showStudentModal = ref(false);
+    const medicationFormData = ref({
+      name: "",
+      category: "",
+      dosageForm: "",
+      strength: "",
+      currentStock: 0,
+      minimumStock: 5,
+      manufacturer: "",
+      expirationDate: "",
+      location: "",
+      notes: "",
+    });
+    const studentFormData = ref({
+      studentId: "",
+      lastName: "",
+      firstName: "",
+      middleInitial: "",
+      age: "",
+      sex: "",
+      nationality: "",
+      address: "",
+      religion: "",
+      course: "",
+      yearLevel: "1st Year",
+      guardianName: "",
+      guardianOccupation: "",
+      guardianAddress: "",
+      guardianContact: "",
+      profileImage: "",
+      labTest: "",
+    });
+    const currentUser = ref(
+      JSON.parse(localStorage.getItem("currentUser")) || {}
+    );
 
-    const documents = [
-      { field: "medicalCertificate", label: "Medical Certificate" },
-      { field: "urinalysisReport", label: "Urinalysis Report" },
-      { field: "radiologicReport", label: "Radiologic Report" },
-      { field: "hematologyReport", label: "Hematology Report" },
-      { field: "drugTestReport", label: "Drug Test Report" },
-      { field: "dentalHealthChart", label: "Dental Health Chart" },
-    ];
+    // Convert medications to dropdown options
+    const medicationOptions = computed(() => {
+      return medications.value.map((med) => ({
+        value: med.name,
+        label: `${med.name} (${med.strength}) - Stock: ${med.currentStock}`,
+        data: med,
+      }));
+    });
+
+    // Convert students to dropdown options
+    const studentOptions = computed(() => {
+      return props.students.map((student) => ({
+        value: student,
+        label: `${student.firstName} ${student.lastName} (${student.studentId})`,
+      }));
+    });
+
+    // Status options for dropdown
+    const statusOptions = ref([
+      { value: "Active", label: "Active" },
+      { value: "Completed", label: "Completed" },
+      { value: "Follow-up Required", label: "Follow-up Required" },
+    ]);
 
     onMounted(async () => {
       await fetchMedications();
@@ -361,6 +417,7 @@ export default {
 
     async function fetchMedications() {
       try {
+        const { getItems } = useCRUD("medications");
         const items = await getItems();
         medications.value = items;
       } catch (error) {
@@ -410,7 +467,20 @@ export default {
     function addMedication() {
       if (newMedication.value.name && newMedication.value.dosage) {
         if (!formData.value.medications) formData.value.medications = [];
-        formData.value.medications.push({ ...newMedication.value });
+
+        // Find the selected medication from the medications array
+        const selectedMed = medications.value.find(
+          (m) => m.name === newMedication.value.name
+        );
+
+        formData.value.medications.push({
+          name: newMedication.value.name,
+          dosage: newMedication.value.dosage,
+          strength: selectedMed?.strength || "",
+          category: selectedMed?.category || "",
+          medicationId: selectedMed?.id || "",
+        });
+
         newMedication.value = { name: "", dosage: "" };
       }
     }
@@ -421,7 +491,18 @@ export default {
 
     async function handleMedicationSubmit(medicationData) {
       try {
+        const { addItem: addMedicationItem } = useCRUD("medications");
         await addMedicationItem(medicationData);
+
+        await logActivity({
+          type: "medication",
+          action: "create",
+          title: "New Medication Added",
+          description: `Added new medication: ${medicationData.name} (${medicationData.strength})`,
+          timestamp: serverTimestamp(),
+          performedBy: currentUser.value,
+        });
+
         await fetchMedications();
         showMedicationsModal.value = false;
       } catch (error) {
@@ -429,12 +510,37 @@ export default {
       }
     }
 
-    function viewDocument(field) {
-      if (studentDetails.value.documents?.[field]) {
-        const newWindow = window.open();
-        newWindow.document.write(`
-          <iframe src="${studentDetails.value.documents[field]}" style="width:100%;height:100vh;border:none;"></iframe>
-        `);
+    async function handleStudentSubmit(data) {
+      try {
+        const studentData = {
+          ...data,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+
+        await setDoc(doc(db, "students", data.studentId), studentData);
+
+        await logActivity({
+          type: "student",
+          action: "create",
+          title: "New Student Added",
+          description: `Added new student ${data.firstName} ${data.lastName}`,
+          timestamp: serverTimestamp(),
+          performedBy: currentUser.value,
+        });
+
+        // Update students list
+        const studentsRef = collection(db, "students");
+        const studentSnapshot = await getDocs(studentsRef);
+        const students = studentSnapshot.docs.map((doc) => doc.data());
+        props.students.splice(0, props.students.length, ...students);
+
+        // Select the newly added student
+        formData.value.student = studentData;
+
+        showStudentModal.value = false;
+      } catch (error) {
+        console.error("Error saving student:", error);
       }
     }
 
@@ -450,6 +556,12 @@ export default {
       }
     }
 
+    function determineStatus(currentStock, minimumStock) {
+      if (currentStock <= 0) return "Out of Stock";
+      if (currentStock <= minimumStock) return "Low Stock";
+      return "In Stock";
+    }
+
     async function submitForm() {
       if (!formData.value.date) {
         formData.value.date = new Date().toISOString().split("T")[0];
@@ -460,10 +572,54 @@ export default {
       }
 
       try {
+        // Update medication inventory if needed
+        if (
+          formData.value.medications &&
+          formData.value.medications.length > 0
+        ) {
+          const { getItem, updateItem: updateMedicationItem } =
+            useCRUD("medications");
+
+          for (const med of formData.value.medications) {
+            if (med.medicationId) {
+              const medication = await getItem(med.medicationId);
+              if (medication && medication.currentStock > 0) {
+                // Decrease stock by 1 (or could be based on dosage if needed)
+                await updateMedicationItem({
+                  ...medication,
+                  currentStock: Math.max(0, medication.currentStock - 1),
+                  status: determineStatus(
+                    Math.max(0, medication.currentStock - 1),
+                    medication.minimumStock
+                  ),
+                });
+              }
+            }
+          }
+        }
+
         if (props.isEditing) {
           await updateItem(formData.value);
+
+          await logActivity({
+            type: "medicalRecord",
+            action: "update",
+            title: "Medical Record Updated",
+            description: `Updated medical record for ${formData.value.studentName}`,
+            timestamp: serverTimestamp(),
+            performedBy: currentUser.value,
+          });
         } else {
           await addItem(formData.value);
+
+          await logActivity({
+            type: "medicalRecord",
+            action: "create",
+            title: "New Medical Record Created",
+            description: `Created new medical record for ${formData.value.studentName}`,
+            timestamp: serverTimestamp(),
+            performedBy: currentUser.value,
+          });
         }
         emit("submit", formData.value);
         closeModal();
@@ -475,20 +631,26 @@ export default {
     return {
       formData,
       studentDetails,
-      documents,
       newSymptom,
       newMedication,
       medications,
       showMedicationsModal,
+      showStudentModal,
+      medicationFormData,
+      studentFormData,
+      documentLabels,
+      medicationOptions,
+      studentOptions,
+      statusOptions,
       addSymptom,
       removeSymptom,
       addMedication,
       removeMedication,
-      viewDocument,
       closeModal,
       handleBackgroundClick,
       submitForm,
       handleMedicationSubmit,
+      handleStudentSubmit,
     };
   },
 };
