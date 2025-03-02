@@ -45,25 +45,30 @@ export default {
       return route.path === "/login";
     });
 
+    const checkAuth = () => {
+      // Check for currentUser (from LoginPage.vue) instead of currentAdmin
+      const user = localStorage.getItem("currentUser");
+      isAuthenticated.value = !!user;
+    };
+
     watch(isAuthenticated, (newValue) => {
       if (!newValue && !isLoginPage.value) {
         router.push("/login");
       }
     });
 
+    // Check authentication whenever route changes
     watch(
       () => route.path,
-      (newPath) => {
-        if (newPath !== "/login" && !isAuthenticated.value) {
-          router.push("/login");
-        }
+      () => {
+        checkAuth();
       }
     );
 
     onMounted(() => {
-      const admin = localStorage.getItem("currentAdmin");
-      isAuthenticated.value = !!admin;
+      checkAuth();
 
+      // Redirect to overview if already authenticated and on login page
       if (isAuthenticated.value && isLoginPage.value) {
         router.push("/overview");
       }

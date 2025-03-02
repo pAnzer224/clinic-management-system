@@ -191,7 +191,7 @@ export default {
   },
   emits: ["update:modelValue", "submit"],
   setup(props, { emit }) {
-    const formData = ref({});
+    const formData = ref({ ...props.initialFormData });
 
     const categoryOptions = computed(() => {
       return categories.map((category) => ({
@@ -208,7 +208,9 @@ export default {
     watch(
       () => props.initialFormData,
       (newVal) => {
-        formData.value = { ...newVal };
+        if (newVal) {
+          formData.value = { ...newVal };
+        }
       },
       { immediate: true, deep: true }
     );
@@ -224,7 +226,7 @@ export default {
     }
 
     async function submitForm() {
-      emit("submit", formData.value);
+      emit("submit", { ...formData.value });
       closeModal();
     }
 

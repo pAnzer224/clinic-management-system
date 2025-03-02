@@ -78,7 +78,8 @@ const router = createRouter({
 
 // Navigation guard
 router.beforeEach((to, from, next) => {
-  const isAuthenticated = !!localStorage.getItem("currentAdmin");
+  // Check for currentUser (from LoginPage.vue) instead of currentAdmin
+  const isAuthenticated = !!localStorage.getItem("currentUser");
 
   if (to.meta.requiresAuth && !isAuthenticated) {
     next("/login");

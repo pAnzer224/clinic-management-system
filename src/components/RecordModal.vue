@@ -167,21 +167,15 @@
 
               <!-- Medications -->
               <div class="space-y-2">
+                <h4 class="font-medium text-gray-700">Medications</h4>
                 <div class="flex gap-2">
-                  <div class="flex items-center gap-2 flex-1">
-                    <Dropdown
-                      v-model="newMedication.name"
-                      :options="medicationOptions"
-                      placeholder="Select Medicine"
-                    />
-                    <button
-                      type="button"
-                      @click="showMedicationsModal = true"
-                      class="bg-blue2 text-white p-2 rounded-full hover:bg-blue1"
-                    >
-                      <PlusIcon class="size-3" />
-                    </button>
-                  </div>
+                  <Dropdown
+                    v-model="newMedication.medicationId"
+                    :options="medicationOptions"
+                    placeholder="Select Medicine"
+                    class="flex-1"
+                    @update:modelValue="handleMedicationSelect"
+                  />
                   <input
                     v-model="newMedication.dosage"
                     placeholder="Dosage"
@@ -191,17 +185,28 @@
                     type="button"
                     @click="addMedication"
                     class="px-4 py-2 bg-blue1 text-white rounded-full"
+                    :disabled="
+                      !newMedication.medicationId || !newMedication.dosage
+                    "
                   >
                     Add
                   </button>
                 </div>
-                <div class="space-y-2">
+
+                <!-- Display added medications -->
+                <div class="space-y-2 mt-2">
                   <div
                     v-for="(med, index) in formData.medications"
                     :key="index"
                     class="flex items-center justify-between bg-blue1/10 px-4 py-2 rounded-lg"
                   >
-                    <span>{{ med.name }} - {{ med.dosage }}</span>
+                    <div>
+                      <span class="font-medium">{{ med.name }}</span>
+                      <span> - {{ med.dosage }}</span>
+                      <span class="text-sm text-gray-600 ml-2"
+                        >({{ med.strength }})</span
+                      >
+                    </div>
                     <button
                       type="button"
                       @click="removeMedication(index)"
@@ -210,6 +215,19 @@
                       ×
                     </button>
                   </div>
+                </div>
+
+                <div class="flex justify-between mt-2">
+                  <button
+                    type="button"
+                    @click="showMedicationsModal = true"
+                    class="text-sm text-blue1 hover:underline"
+                  >
+                    + Add new medication to inventory
+                  </button>
+                  <span v-if="noMedicationWarning" class="text-sm text-red-500">
+                    Please add at least one medication
+                  </span>
                 </div>
               </div>
 
@@ -276,34 +294,14 @@
 </template>
 
 <script>
-import { ref, watch, onMounted, computed } from "vue";
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  doc,
-  setDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/firebase-config";
-import { useCRUD } from "@/utils/firebaseCRUD";
+import { useRecordModal } from "@/composables/recordManagement";
 import { XMarkIcon, PlusIcon } from "@heroicons/vue/24/solid";
 import MedicationsModal from "./MedicationsModal.vue";
 import StudentModal from "./StudentModal.vue";
 import StudentAccordion from "./StudentAccordion.vue";
-import { logActivity } from "@/utils/activity-logger";
 import Dropdown from "./Dropdown.vue";
-
-const documentLabels = {
-  medicalCertificate: "Medical Certificate",
-  urinalysisReport: "Urinalysis Report",
-  radiologicReport: "Radiologic Report",
-  hematologyReport: "Hematology Report",
-  drugTestReport: "Drug Test Report",
-  dentalHealthChart: "Dental Health Chart",
-  healthExam: "Health Examination Form",
-};
+import { doc, updateDoc, getDoc } from "firebase/firestore";
+import { db } from "@/firebase-config";
 
 export default {
   name: "RecordModal",
@@ -326,332 +324,51 @@ export default {
       type: Array,
       required: true,
     },
+    appointments: {
+      type: Array,
+      default: () => [],
+    },
   },
   emits: ["update:modelValue", "submit"],
-  setup(props, { emit }) {
-    const { addItem, updateItem } = useCRUD("medicalRecords");
-    const formData = ref({});
-    const newSymptom = ref("");
-    const newMedication = ref({ name: "", dosage: "" });
-    const studentDetails = ref({});
-    const medications = ref([]);
-    const showMedicationsModal = ref(false);
-    const showStudentModal = ref(false);
-    const medicationFormData = ref({
-      name: "",
-      category: "",
-      dosageForm: "",
-      strength: "",
-      currentStock: 0,
-      minimumStock: 5,
-      manufacturer: "",
-      expirationDate: "",
-      location: "",
-      notes: "",
-    });
-    const studentFormData = ref({
-      studentId: "",
-      lastName: "",
-      firstName: "",
-      middleInitial: "",
-      age: "",
-      sex: "",
-      nationality: "",
-      address: "",
-      religion: "",
-      course: "",
-      yearLevel: "1st Year",
-      guardianName: "",
-      guardianOccupation: "",
-      guardianAddress: "",
-      guardianContact: "",
-      profileImage: "",
-      labTest: "",
-    });
-    const currentUser = ref(
-      JSON.parse(localStorage.getItem("currentUser")) || {}
-    );
+  setup(props, context) {
+    const recordModalSetup = useRecordModal(props, context);
 
-    // Convert medications to dropdown options
-    const medicationOptions = computed(() => {
-      return medications.value.map((med) => ({
-        value: med.name,
-        label: `${med.name} (${med.strength}) - Stock: ${med.currentStock}`,
-        data: med,
-      }));
-    });
+    const originalSubmitForm = recordModalSetup.submitForm;
 
-    // Convert students to dropdown options
-    const studentOptions = computed(() => {
-      return props.students.map((student) => ({
-        value: student,
-        label: `${student.firstName} ${student.lastName} (${student.studentId})`,
-      }));
-    });
-
-    // Status options for dropdown
-    const statusOptions = ref([
-      { value: "Active", label: "Active" },
-      { value: "Completed", label: "Completed" },
-      { value: "Follow-up Required", label: "Follow-up Required" },
-    ]);
-
-    onMounted(async () => {
-      await fetchMedications();
-    });
-
-    watch(
-      () => props.initialFormData,
-      (newVal) => {
-        formData.value = {
-          ...newVal,
-          symptoms: newVal.symptoms || [],
-          medications: newVal.medications || [],
-        };
-        if (props.isEditing && newVal.studentId) {
-          fetchStudentData(newVal.studentId);
-        }
-      },
-      { immediate: true, deep: true }
-    );
-
-    async function fetchMedications() {
+    recordModalSetup.submitForm = async () => {
       try {
-        const { getItems } = useCRUD("medications");
-        const items = await getItems();
-        medications.value = items;
-      } catch (error) {
-        console.error("Error fetching medications:", error);
-      }
-    }
+        // Deduct medication stock
+        if (recordModalSetup.formData.value.medications) {
+          for (const med of recordModalSetup.formData.value.medications) {
+            const medicationRef = doc(db, "medications", med.medicationId);
+            const medicationDoc = await getDoc(medicationRef);
 
-    async function fetchStudentData(studentId) {
-      try {
-        const studentsRef = collection(db, "students");
-        const studentQuery = query(
-          studentsRef,
-          where("studentId", "==", studentId)
-        );
-        const studentSnapshot = await getDocs(studentQuery);
-        if (!studentSnapshot.empty) {
-          studentDetails.value = studentSnapshot.docs[0].data();
-        }
-      } catch (error) {
-        console.error("Error fetching student data:", error);
-      }
-    }
+            if (medicationDoc.exists()) {
+              const currentStock = medicationDoc.data().currentStock;
+              const quantity = med.quantity || 1;
+              const newStock = Math.max(0, currentStock - quantity);
 
-    watch(
-      () => formData.value.student,
-      (student) => {
-        if (student) {
-          formData.value.studentId = student.studentId;
-          formData.value.studentName = `${student.firstName} ${student.lastName}`;
-          fetchStudentData(student.studentId);
-        }
-      }
-    );
-
-    function addSymptom() {
-      if (newSymptom.value.trim()) {
-        if (!formData.value.symptoms) formData.value.symptoms = [];
-        formData.value.symptoms.push(newSymptom.value.trim());
-        newSymptom.value = "";
-      }
-    }
-
-    function removeSymptom(index) {
-      formData.value.symptoms.splice(index, 1);
-    }
-
-    function addMedication() {
-      if (newMedication.value.name && newMedication.value.dosage) {
-        if (!formData.value.medications) formData.value.medications = [];
-
-        // Find the selected medication from the medications array
-        const selectedMed = medications.value.find(
-          (m) => m.name === newMedication.value.name
-        );
-
-        formData.value.medications.push({
-          name: newMedication.value.name,
-          dosage: newMedication.value.dosage,
-          strength: selectedMed?.strength || "",
-          category: selectedMed?.category || "",
-          medicationId: selectedMed?.id || "",
-        });
-
-        newMedication.value = { name: "", dosage: "" };
-      }
-    }
-
-    function removeMedication(index) {
-      formData.value.medications.splice(index, 1);
-    }
-
-    async function handleMedicationSubmit(medicationData) {
-      try {
-        const { addItem: addMedicationItem } = useCRUD("medications");
-        await addMedicationItem(medicationData);
-
-        await logActivity({
-          type: "medication",
-          action: "create",
-          title: "New Medication Added",
-          description: `Added new medication: ${medicationData.name} (${medicationData.strength})`,
-          timestamp: serverTimestamp(),
-          performedBy: currentUser.value,
-        });
-
-        await fetchMedications();
-        showMedicationsModal.value = false;
-      } catch (error) {
-        console.error("Error adding new medication:", error);
-      }
-    }
-
-    async function handleStudentSubmit(data) {
-      try {
-        const studentData = {
-          ...data,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-
-        await setDoc(doc(db, "students", data.studentId), studentData);
-
-        await logActivity({
-          type: "student",
-          action: "create",
-          title: "New Student Added",
-          description: `Added new student ${data.firstName} ${data.lastName}`,
-          timestamp: serverTimestamp(),
-          performedBy: currentUser.value,
-        });
-
-        // Update students list
-        const studentsRef = collection(db, "students");
-        const studentSnapshot = await getDocs(studentsRef);
-        const students = studentSnapshot.docs.map((doc) => doc.data());
-        props.students.splice(0, props.students.length, ...students);
-
-        // Select the newly added student
-        formData.value.student = studentData;
-
-        showStudentModal.value = false;
-      } catch (error) {
-        console.error("Error saving student:", error);
-      }
-    }
-
-    function closeModal() {
-      formData.value = {};
-      studentDetails.value = {};
-      emit("update:modelValue", false);
-    }
-
-    function handleBackgroundClick(event) {
-      if (event.target === event.currentTarget) {
-        closeModal();
-      }
-    }
-
-    function determineStatus(currentStock, minimumStock) {
-      if (currentStock <= 0) return "Out of Stock";
-      if (currentStock <= minimumStock) return "Low Stock";
-      return "In Stock";
-    }
-
-    async function submitForm() {
-      if (!formData.value.date) {
-        formData.value.date = new Date().toISOString().split("T")[0];
-      }
-
-      if (!formData.value.id) {
-        formData.value.id = `record_${Date.now()}`;
-      }
-
-      try {
-        // Update medication inventory if needed
-        if (
-          formData.value.medications &&
-          formData.value.medications.length > 0
-        ) {
-          const { getItem, updateItem: updateMedicationItem } =
-            useCRUD("medications");
-
-          for (const med of formData.value.medications) {
-            if (med.medicationId) {
-              const medication = await getItem(med.medicationId);
-              if (medication && medication.currentStock > 0) {
-                // Decrease stock by 1 (or could be based on dosage if needed)
-                await updateMedicationItem({
-                  ...medication,
-                  currentStock: Math.max(0, medication.currentStock - 1),
-                  status: determineStatus(
-                    Math.max(0, medication.currentStock - 1),
-                    medication.minimumStock
-                  ),
-                });
-              }
+              await updateDoc(medicationRef, {
+                currentStock: newStock,
+                status:
+                  newStock <= 0
+                    ? "Out of Stock"
+                    : newStock <= medicationDoc.data().minimumStock
+                    ? "Low Stock"
+                    : "In Stock",
+              });
             }
           }
         }
 
-        if (props.isEditing) {
-          await updateItem(formData.value);
-
-          await logActivity({
-            type: "medicalRecord",
-            action: "update",
-            title: "Medical Record Updated",
-            description: `Updated medical record for ${formData.value.studentName}`,
-            timestamp: serverTimestamp(),
-            performedBy: currentUser.value,
-          });
-        } else {
-          await addItem(formData.value);
-
-          await logActivity({
-            type: "medicalRecord",
-            action: "create",
-            title: "New Medical Record Created",
-            description: `Created new medical record for ${formData.value.studentName}`,
-            timestamp: serverTimestamp(),
-            performedBy: currentUser.value,
-          });
-        }
-        emit("submit", formData.value);
-        closeModal();
+        // Call original submit function
+        await originalSubmitForm();
       } catch (error) {
-        console.error("Error submitting record:", error);
+        console.error("Error in form submission:", error);
       }
-    }
-
-    return {
-      formData,
-      studentDetails,
-      newSymptom,
-      newMedication,
-      medications,
-      showMedicationsModal,
-      showStudentModal,
-      medicationFormData,
-      studentFormData,
-      documentLabels,
-      medicationOptions,
-      studentOptions,
-      statusOptions,
-      addSymptom,
-      removeSymptom,
-      addMedication,
-      removeMedication,
-      closeModal,
-      handleBackgroundClick,
-      submitForm,
-      handleMedicationSubmit,
-      handleStudentSubmit,
     };
+
+    return recordModalSetup;
   },
 };
 </script>

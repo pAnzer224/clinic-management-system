@@ -169,7 +169,14 @@ import {
 } from "@heroicons/vue/24/outline";
 import MedicationsModal from "@/components/MedicationsModal.vue";
 import { useCRUD } from "@/utils/firebaseCRUD";
-import { serverTimestamp } from "firebase/firestore";
+import {
+  serverTimestamp,
+  collection,
+  onSnapshot,
+  query,
+  orderBy,
+} from "firebase/firestore";
+import { db } from "@/firebase-config";
 import { IntersectingCirclesSpinner } from "epic-spinners";
 import Dropdown from "@/components/Dropdown.vue";
 import { logActivity } from "@/utils/activity-logger";
@@ -214,16 +221,11 @@ export default {
   },
   setup() {
     const route = useRoute();
-    const {
-      items: medications,
-      loading,
-      error,
-      listenToChanges,
-      stopListening,
-      addItem,
-      updateItem,
-      deleteItem,
-    } = useCRUD("medications");
+    const medications = ref([]);
+    const loading = ref(true);
+    const error = ref(null);
+    const unsubscribe = ref(null);
+    const { addItem, updateItem, deleteItem } = useCRUD("medications");
 
     const searchQuery = ref("");
     const filterCategory = ref("");
@@ -269,6 +271,33 @@ export default {
       setTimeout(() => {
         showToast.value = false;
       }, 3000);
+    }
+
+    function listenToChanges() {
+      const q = query(collection(db, "medications"), orderBy("name"));
+      loading.value = true;
+
+      unsubscribe.value = onSnapshot(
+        q,
+        (snapshot) => {
+          medications.value = snapshot.docs.map((doc) => ({
+            id: doc.id,
+            ...doc.data(),
+          }));
+          loading.value = false;
+        },
+        (err) => {
+          console.error("Error listening to medications:", err);
+          error.value = err.message;
+          loading.value = false;
+        }
+      );
+    }
+
+    function stopListening() {
+      if (unsubscribe.value) {
+        unsubscribe.value();
+      }
     }
 
     onMounted(() => {
@@ -393,6 +422,8 @@ export default {
       adjustStock,
       deleteMedication,
       submitForm,
+      listenToChanges,
+      stopListening,
     };
   },
 };

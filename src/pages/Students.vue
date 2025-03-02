@@ -49,12 +49,12 @@
             <table class="w-full table-fixed">
               <thead>
                 <tr class="text-left text-text/60">
-                  <th class="pb-4 w-1/6">Student ID</th>
-                  <th class="pb-4 w-2/6">Name</th>
+                  <th class="pb-4 w-1/5">Student ID</th>
+                  <th class="pb-4 w-1/4">Name</th>
                   <th class="pb-4 w-1/6">Course</th>
                   <th class="pb-4 w-1/8">Year</th>
                   <th class="pb-4 w-1/8">Acad. Year</th>
-                  <th class="pb-4 w-1/8">Actions</th>
+                  <th class="pb-4 w-1/12 text-right">Actions</th>
                 </tr>
               </thead>
             </table>
@@ -74,7 +74,7 @@
                     :key="student.studentId"
                     class="border-t border-graytint/50"
                   >
-                    <td class="py-4 w-1/6">
+                    <td class="py-4 w-1/5">
                       <div class="flex items-center gap-4">
                         <div
                           class="w-10 h-10 rounded-full bg-blue1/10 overflow-hidden flex-shrink-0"
@@ -89,7 +89,7 @@
                         <span class="truncate">{{ student.studentId }}</span>
                       </div>
                     </td>
-                    <td class="w-2/6">
+                    <td class="w-1/4">
                       <div class="truncate">
                         {{ student.lastName }}, {{ student.firstName }}
                         {{ student.middleInitial }}
@@ -100,7 +100,7 @@
                     </td>
                     <td class="w-1/8">{{ student.yearLevel }}</td>
                     <td class="w-1/8">{{ student.schoolYear }}</td>
-                    <td class="w-1/8 space-x-2">
+                    <td class="w-1/12 text-right space-x-2">
                       <button
                         @click="editStudent(student)"
                         class="text-blue2/90 hover:text-blue1"
@@ -146,59 +146,16 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from "vue";
-import { useRoute } from "vue-router";
+import { onMounted, onBeforeUnmount } from "vue";
 import {
   EyeIcon,
   TrashIcon,
   MagnifyingGlassIcon,
 } from "@heroicons/vue/24/outline";
 import StudentModal from "@/components/StudentModal.vue";
-import { useCRUD } from "@/utils/firebaseCRUD";
-import {
-  serverTimestamp,
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-} from "firebase/firestore";
 import { IntersectingCirclesSpinner } from "epic-spinners";
 import Dropdown from "@/components/Dropdown.vue";
-import { logActivity } from "@/utils/activity-logger";
-import { db } from "@/firebase-config";
-
-const YEAR_OPTIONS = ["1st Year", "2nd Year", "3rd Year", "4th Year"];
-const SCHOOL_YEAR_OPTIONS = ["2023-2024", "2024-2025", "2025-2026"];
-const TABLE_HEADERS = [
-  "Student ID",
-  "Name",
-  "Course",
-  "Year Level",
-  "Academic Year",
-  "Actions",
-];
-
-const INITIAL_FORM = {
-  studentId: "",
-  lastName: "",
-  firstName: "",
-  middleInitial: "",
-  age: "",
-  sex: "",
-  nationality: "",
-  address: "",
-  religion: "",
-  course: "",
-  yearLevel: "1st Year",
-  schoolYear: "",
-  guardianName: "",
-  guardianOccupation: "",
-  guardianAddress: "",
-  guardianContact: "",
-  profileImage: "",
-  labTest: "",
-  documents: {},
-};
+import { useStudentsList } from "@/composables/studentManagement";
 
 export default {
   name: "Students",
@@ -211,170 +168,38 @@ export default {
     Dropdown,
   },
   setup() {
-    const route = useRoute();
     const {
-      items: students,
+      students,
       loading,
       error,
-      listenToChanges,
-      stopListening,
-      addItem,
-      updateItem,
-      deleteItem,
-    } = useCRUD("students");
-
-    const searchQuery = ref("");
-    const filterYear = ref("");
-    const filterSchoolYear = ref("");
-    const showModal = ref(false);
-    const isEditing = ref(false);
-    const formData = ref({ ...INITIAL_FORM });
-    const showToast = ref(false);
-    const toastMessage = ref("");
-    const currentUser = ref(
-      JSON.parse(localStorage.getItem("currentUser")) || {}
-    );
-    const appointments = ref([]);
-    let unsubscribeAppointments = null;
-
-    function listenToAppointments() {
-      const appointmentsQuery = query(
-        collection(db, "appointments"),
-        orderBy("date"),
-        orderBy("time")
-      );
-
-      unsubscribeAppointments = onSnapshot(
-        appointmentsQuery,
-        (snapshot) => {
-          appointments.value = snapshot.docs.map((doc) => ({
-            id: doc.id,
-            ...doc.data(),
-          }));
-        },
-        (error) => {
-          console.error("Error fetching appointments:", error);
-        }
-      );
-    }
-
-    const yearFilterOptions = computed(() => {
-      return [
-        { value: "", label: "All Years" },
-        ...YEAR_OPTIONS.map((year) => ({ value: year, label: year })),
-      ];
-    });
-
-    const schoolYearFilterOptions = computed(() => {
-      return [
-        { value: "", label: "All Academic Years" },
-        ...SCHOOL_YEAR_OPTIONS.map((year) => ({ value: year, label: year })),
-      ];
-    });
-
-    const filteredStudents = computed(() => {
-      return students.value.filter((student) => {
-        const matchesYear =
-          !filterYear.value || student.yearLevel === filterYear.value;
-        const matchesSchoolYear =
-          !filterSchoolYear.value ||
-          student.schoolYear === filterSchoolYear.value;
-        const searchLower = searchQuery.value.toLowerCase();
-        return (
-          matchesYear &&
-          matchesSchoolYear &&
-          (!searchQuery.value ||
-            student.lastName?.toLowerCase().includes(searchLower) ||
-            student.firstName?.toLowerCase().includes(searchLower) ||
-            student.studentId?.toLowerCase().includes(searchLower))
-        );
-      });
-    });
-
-    function showNotification(message) {
-      toastMessage.value = message;
-      showToast.value = true;
-      setTimeout(() => {
-        showToast.value = false;
-      }, 3000);
-    }
+      searchQuery,
+      filterYear,
+      filterSchoolYear,
+      showModal,
+      isEditing,
+      formData,
+      filteredStudents,
+      yearFilterOptions,
+      schoolYearFilterOptions,
+      showToast,
+      toastMessage,
+      currentUser,
+      appointments,
+      initializeStudents,
+      add,
+      editStudent,
+      deleteStudent,
+      submitForm,
+      cleanup,
+    } = useStudentsList();
 
     onMounted(() => {
-      if (route.query.openModal === "true") {
-        add();
-      }
-      listenToChanges();
-      listenToAppointments();
+      initializeStudents();
     });
 
-    function add() {
-      isEditing.value = false;
-      formData.value = { ...INITIAL_FORM };
-      showModal.value = true;
-    }
-
-    function editStudent(student) {
-      isEditing.value = true;
-      formData.value = { ...student };
-      showModal.value = true;
-    }
-
-    async function deleteStudent(student) {
-      if (confirm("Are you sure you want to delete this student?")) {
-        try {
-          await deleteItem(student.studentId);
-          logActivity({
-            type: "student",
-            action: "delete",
-            title: "Student Removed",
-            description: `Removed student ${student.firstName} ${student.lastName}`,
-            timestamp: serverTimestamp(),
-          });
-          showNotification(
-            `Student ${student.firstName} ${student.lastName} has been deleted`
-          );
-        } catch (error) {
-          console.error("Error deleting student:", error);
-          showNotification("Error deleting student");
-        }
-      }
-    }
-
-    async function submitForm(data) {
-      try {
-        const submitData = {
-          ...data,
-          id: data.studentId,
-          updatedAt: serverTimestamp(),
-        };
-
-        if (!isEditing.value) {
-          submitData.createdAt = serverTimestamp();
-          await addItem(submitData);
-        } else {
-          await updateItem(submitData);
-        }
-
-        await logActivity({
-          type: "student",
-          action: isEditing.value ? "update" : "create",
-          title: isEditing.value ? "Student Updated" : "New Student Added",
-          description: isEditing.value
-            ? `Updated student information for ${data.firstName} ${data.lastName}`
-            : `Added new student ${data.firstName} ${data.lastName}`,
-          timestamp: serverTimestamp(),
-        });
-
-        showNotification(
-          `Student ${data.firstName} ${data.lastName} has been ${
-            isEditing.value ? "updated" : "added"
-          }`
-        );
-      } catch (error) {
-        console.error("Error saving student:", error);
-        showNotification("Error saving student information");
-      }
-    }
+    onBeforeUnmount(() => {
+      cleanup();
+    });
 
     return {
       students,
@@ -389,9 +214,6 @@ export default {
       filteredStudents,
       yearFilterOptions,
       schoolYearFilterOptions,
-      YEAR_OPTIONS,
-      SCHOOL_YEAR_OPTIONS,
-      TABLE_HEADERS,
       showToast,
       toastMessage,
       currentUser,

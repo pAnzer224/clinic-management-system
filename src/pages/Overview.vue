@@ -7,7 +7,7 @@
       <div
         v-for="stat in stats"
         :key="stat.title"
-        class="bg-blue3/30 p-6 rounded-2xl shadow-sm"
+        class="bg-gradient-to-tr from-blue1/40 to-blue3/30 p-6 rounded-2xl shadow-sm"
       >
         <div class="flex items-center justify-between">
           <div>
@@ -22,10 +22,11 @@
           />
         </div>
         <p
-          class="text-sm mt-4"
+          class="text-sm mt-4 font-medium tracking-wide"
           :class="stat.trend >= 0 ? 'text-green-600' : 'text-red-600'"
         >
-          {{ stat.trend >= 0 ? "+" : "" }}{{ stat.trend }}% from last month
+          {{ stat.trend >= 0 ? "+" : "" }}{{ stat.trend.toFixed(1) }}% from last
+          month
         </p>
       </div>
     </div>
@@ -42,6 +43,16 @@
             class="w-40"
           />
         </div>
+
+        <p
+          class="text-xs text-gray-500 mb-4 flex justify-end font-satoshi-italic tracking-wide"
+        >
+          Manage academic years in&nbsp;
+          <router-link to="/settings" class="text-blue1 hover:underline">
+            Settings
+          </router-link>
+        </p>
+
         <apexchart
           type="bar"
           height="350"
@@ -133,6 +144,7 @@ import {
   Timestamp,
   deleteDoc,
   doc,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import VueApexCharts from "vue3-apexcharts";
@@ -173,35 +185,47 @@ export default {
       {
         title: "Total Students",
         value: 0,
-        trend: 12,
+        trend: 0,
         icon: UsersIcon,
+        collection: "students",
+        filter: null,
       },
       {
         title: "Today's Appointments",
         value: 0,
-        trend: 5,
+        trend: 0,
         icon: CalendarIcon,
+        collection: "appointments",
+        filter: (doc) => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const appointmentDate = new Date(doc.data().date);
+          return appointmentDate.toDateString() === today.toDateString();
+        },
       },
       {
         title: "Available Medications",
         value: 0,
-        trend: -3,
+        trend: 0,
         icon: PillIcon,
+        collection: "medications",
+        filter: (doc) => doc.data().status === "In Stock",
       },
       {
         title: "Medical Records",
         value: 0,
-        trend: 8,
+        trend: 0,
         icon: ClipboardIcon,
+        collection: "medicalRecords",
+        filter: null,
       },
     ]);
 
     const selectedAcademicYear = ref("2024-2025");
-    const academicYearOptions = [
-      { value: "2023-2024", label: "2023-2024" },
-      { value: "2024-2025", label: "2024-2025" },
-      { value: "2025-2026", label: "2025-2026" },
-    ];
+    const academicYearOptions = computed(() => {
+      const years = JSON.parse(localStorage.getItem("academicYears") || "[]");
+      return years.map((year) => ({ value: year, label: year }));
+    });
 
     const courseChartOptions = {
       chart: {
@@ -297,35 +321,121 @@ export default {
       });
     };
 
-    const fetchStats = () => {
-      // Students count
-      onSnapshot(collection(db, "students"), (snapshot) => {
-        stats.value[0].value = snapshot.size;
-        // Initial chart update on load (will be filtered by watch later)
-        updateCourseChart(snapshot, true);
+    const getMonthlyStats = async (collectionName, filter = null) => {
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth();
+      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const yearOfLastMonth =
+        currentMonth === 0
+          ? currentDate.getFullYear() - 1
+          : currentDate.getFullYear();
+
+      // Get the first day of current month and last month
+      const firstDayCurrentMonth = new Date(
+        currentDate.getFullYear(),
+        currentMonth,
+        1
+      );
+      const firstDayLastMonth = new Date(yearOfLastMonth, lastMonth, 1);
+
+      // Get the last day of last month
+      const lastDayLastMonth = new Date(yearOfLastMonth, currentMonth, 0);
+
+      // Create timestamps for Firestore queries
+      const firstDayCurrentMonthTimestamp =
+        Timestamp.fromDate(firstDayCurrentMonth);
+      const firstDayLastMonthTimestamp = Timestamp.fromDate(firstDayLastMonth);
+      const lastDayLastMonthTimestamp = Timestamp.fromDate(lastDayLastMonth);
+
+      // Query to get all documents in the collection
+      const docsSnapshot = await getDocs(collection(db, collectionName));
+
+      // Count current and previous month documents based on filter or creation timestamp
+      let currentMonthCount = 0;
+      let previousMonthCount = 0;
+
+      docsSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const docTimestamp =
+          data.createdAt instanceof Timestamp
+            ? data.createdAt
+            : data.timestamp instanceof Timestamp
+            ? data.timestamp
+            : null;
+
+        // If we have a custom filter function, use it
+        if (filter) {
+          if (filter(doc)) {
+            currentMonthCount++;
+          }
+
+          // We don't have a good way to know if it would have matched last month
+          // This is a limitation, but we'll approximate using creation date
+          if (
+            docTimestamp &&
+            docTimestamp.toDate() >= firstDayLastMonthTimestamp.toDate() &&
+            docTimestamp.toDate() <= lastDayLastMonthTimestamp.toDate()
+          ) {
+            previousMonthCount++;
+          }
+        }
+        // Otherwise use timestamp-based filtering
+        else if (docTimestamp) {
+          if (docTimestamp.toDate() >= firstDayCurrentMonthTimestamp.toDate()) {
+            currentMonthCount++;
+          } else if (
+            docTimestamp.toDate() >= firstDayLastMonthTimestamp.toDate() &&
+            docTimestamp.toDate() <= lastDayLastMonthTimestamp.toDate()
+          ) {
+            previousMonthCount++;
+          }
+        } else {
+          // If no timestamp available, just count it in the current month
+          currentMonthCount++;
+        }
       });
 
-      // Today's appointments
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      onSnapshot(collection(db, "appointments"), (snapshot) => {
-        stats.value[1].value = snapshot.docs.filter((doc) => {
-          const appointmentDate = new Date(doc.data().date);
-          return appointmentDate.toDateString() === today.toDateString();
-        }).length;
-      });
+      return { currentMonthCount, previousMonthCount };
+    };
 
-      // Available medications
-      onSnapshot(collection(db, "medications"), (snapshot) => {
-        stats.value[2].value = snapshot.docs.filter(
-          (doc) => doc.data().status === "In Stock"
-        ).length;
-      });
+    const calculateTrend = (current, previous) => {
+      if (previous === 0) {
+        return current > 0 ? 100 : 0; // If we went from 0 to something, that's a 100% increase
+      }
+      return ((current - previous) / previous) * 100;
+    };
 
-      // Medical records
-      onSnapshot(collection(db, "medicalRecords"), (snapshot) => {
-        stats.value[3].value = snapshot.size;
-      });
+    const fetchStats = async () => {
+      // For each stat, update value and calculate trend
+      for (const [index, stat] of stats.value.entries()) {
+        // Set up listener for real-time value updates
+        onSnapshot(collection(db, stat.collection), (snapshot) => {
+          if (stat.filter) {
+            stat.value = snapshot.docs.filter(stat.filter).length;
+          } else {
+            stat.value = snapshot.size;
+          }
+        });
+
+        // Calculate trend based on month-over-month comparison
+        try {
+          const { currentMonthCount, previousMonthCount } =
+            await getMonthlyStats(stat.collection, stat.filter);
+
+          // Calculate and update trend
+          stats.value[index].trend = calculateTrend(
+            currentMonthCount,
+            previousMonthCount
+          );
+        } catch (error) {
+          console.error(`Error calculating trend for ${stat.title}:`, error);
+          stats.value[index].trend = 0; // Default to 0 if calculation fails
+        }
+      }
+
+      // Initial chart update on load (will be filtered by watch later)
+      const studentsSnapshot = await getDocs(collection(db, "students"));
+      updateCourseChart(studentsSnapshot, true);
     };
 
     const updateCourseChart = (snapshot, initialLoad = false) => {

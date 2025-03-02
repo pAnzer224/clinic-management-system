@@ -167,7 +167,7 @@
 
         <button
           type="submit"
-          class="w-full bg-blue1 text-white py-3 rounded-xl hover:bg-blue1/90 transition-colors font-satoshi-medium disabled:opacity-50 disabled:cursor-not-allowed"
+          class="w-full bg-gradient-to-tl from-blue1/60 to-blue2 duration-300 text-white py-3 rounded-xl hover:bg-blue1/90 transition-colors font-satoshi-medium disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="isLoading || isAccountLocked"
         >
           {{

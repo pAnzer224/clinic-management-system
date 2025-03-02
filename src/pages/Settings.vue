@@ -1,7 +1,42 @@
 <template>
   <main class="flex-1 space-y-6">
     <h1 class="text-2xl font-satoshi-bold text-text">Security</h1>
+    <!-- Academic Years -->
+    <div class="bg-white rounded-2xl p-8 shadow-sm">
+      <h2 class="text-md font-satoshi-medium text-text mb-6">Academic Years</h2>
+      <div class="space-y-4">
+        <div class="flex items-center gap-4">
+          <input
+            v-model="newAcademicYear"
+            placeholder="YYYY-YYYY"
+            class="w-full px-4 py-2 rounded-full border bg-graytint"
+            pattern="\d{4}-\d{4}"
+          />
+          <button
+            @click="addAcademicYear"
+            class="bg-blue1 text-white px-6 py-2 rounded-full"
+          >
+            Add
+          </button>
+        </div>
 
+        <div class="space-y-2">
+          <div
+            v-for="year in academicYears"
+            :key="year"
+            class="flex justify-between items-center p-3 bg-graytint/40 rounded-lg"
+          >
+            <span>{{ year }}</span>
+            <button
+              @click="removeAcademicYear(year)"
+              class="text-red-500 hover:text-red-700"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
     <!-- Account Lock -->
     <div class="bg-white rounded-2xl p-8 shadow-sm">
       <h2 class="text-md font-satoshi-medium text-text mb-6">Account Lock</h2>
@@ -73,8 +108,9 @@
       <button
         @click="saveSecuritySettings"
         class="bg-blue1 text-white px-6 py-2 rounded-full"
+        :disabled="loading"
       >
-        Save Settings
+        {{ loading ? "Saving..." : "Save Settings" }}
       </button>
     </div>
 
@@ -102,6 +138,9 @@ export default {
       sessionTimeout: 15,
       showToast: false,
       toastMessage: "",
+      academicYears: [],
+      newAcademicYear: "",
+      loading: false,
     };
   },
   mounted() {
@@ -112,6 +151,16 @@ export default {
       this.maxFailedAttempts = settings.maxFailedAttempts || 5;
       this.sessionTimeout = settings.sessionTimeout || 15;
     }
+
+    const savedYears = localStorage.getItem("academicYears");
+    if (savedYears) {
+      this.academicYears = JSON.parse(savedYears);
+    } else {
+      // Default years
+      this.academicYears = ["2023-2024", "2024-2025", "2025-2026"];
+      localStorage.setItem("academicYears", JSON.stringify(this.academicYears));
+    }
+
     this.setupSessionTimeout();
   },
   methods: {
@@ -123,6 +172,7 @@ export default {
       }, 3000);
     },
     async saveSecuritySettings() {
+      this.loading = true;
       try {
         const settings = {
           accountLockEnabled: this.accountLockEnabled,
@@ -131,6 +181,10 @@ export default {
         };
 
         localStorage.setItem("securitySettings", JSON.stringify(settings));
+        localStorage.setItem(
+          "academicYears",
+          JSON.stringify(this.academicYears)
+        );
 
         await logActivity({
           type: "settings",
@@ -149,6 +203,8 @@ export default {
       } catch (error) {
         console.error("Error saving settings:", error);
         this.showNotification("Error saving settings");
+      } finally {
+        this.loading = false;
       }
     },
     setupSessionTimeout() {
@@ -181,6 +237,27 @@ export default {
       };
 
       window.sessionTimeoutId = setTimeout(checkInactivity, 60000);
+    },
+    addAcademicYear() {
+      if (!this.newAcademicYear.match(/^\d{4}-\d{4}$/)) {
+        this.showNotification("Please use YYYY-YYYY format");
+        return;
+      }
+
+      if (!this.academicYears.includes(this.newAcademicYear)) {
+        this.academicYears.push(this.newAcademicYear);
+        localStorage.setItem(
+          "academicYears",
+          JSON.stringify(this.academicYears)
+        );
+        this.newAcademicYear = "";
+        this.showNotification("Academic year added");
+      }
+    },
+    removeAcademicYear(year) {
+      this.academicYears = this.academicYears.filter((y) => y !== year);
+      localStorage.setItem("academicYears", JSON.stringify(this.academicYears));
+      this.showNotification("Academic year removed");
     },
   },
   beforeUnmount() {

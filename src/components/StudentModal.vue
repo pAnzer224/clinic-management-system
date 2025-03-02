@@ -352,7 +352,6 @@
 </template>
 
 <script>
-import { ref, watch, computed, nextTick } from "vue";
 import {
   XMarkIcon,
   PencilIcon,
@@ -360,58 +359,20 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
 } from "@heroicons/vue/24/solid";
-import { handleImageUpload } from "@/utils/image-utils";
-import { handleDocumentUpload } from "@/utils/document-upload-utils";
-import { useCRUD } from "@/utils/firebaseCRUD";
 import HealthExamForm from "./HealthExamForm.vue";
 import PhysicalExamForm from "./PhysicalExamForm.vue";
 import Dropdown from "./Dropdown.vue";
 import StudentAccordion from "./StudentAccordion.vue";
 import DocumentViewerModal from "./DocumentViewerModal.vue";
-
-const courseOptions = [
-  { value: "", label: "Choose a Course" },
-  { value: "BSCRIM", label: "BSCRIM" },
-  { value: "BEED", label: "BEED" },
-  { value: "BSED", label: "BSED" },
-  { value: "BSIT", label: "BSIT" },
-  { value: "BSAB", label: "BSAB" },
-  { value: "HM", label: "HM" },
-];
-
-const yearLevelOptions = [
-  { value: "1st Year", label: "1st Year" },
-  { value: "2nd Year", label: "2nd Year" },
-  { value: "3rd Year", label: "3rd Year" },
-  { value: "4th Year", label: "4th Year" },
-];
-
-const schoolYearOptions = [
-  { value: "", label: "Choose a School Year" },
-  { value: "2023-2024", label: "2023-2024" },
-  { value: "2024-2025", label: "2024-2025" },
-  { value: "2025-2026", label: "2025-2026" },
-];
-
-const sexOptions = [
-  { value: "", label: "Select Sex" },
-  { value: "Male", label: "Male" },
-  { value: "Female", label: "Female" },
-];
-
-const documentLabels = {
-  medicalCertificate: "Medical Certificate",
-  urinalysisReport: "Urinalysis Report",
-  radiologicReport: "Radiologic Report",
-  hematologyReport: "Hematology Report",
-  drugTestReport: "Drug Test Report",
-  dentalHealthChart: "Dental Health Chart",
-  healthExam: "Health Examination Form",
-  physicalExam: "Physical Examination Form",
-};
-
-const acceptedDocumentTypes =
-  ".pdf,.doc,.docx,.jpg,.jpeg,.png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png";
+import {
+  useStudentModal,
+  courseOptions,
+  yearLevelOptions,
+  schoolYearOptions,
+  sexOptions,
+  documentLabels,
+  acceptedDocumentTypes,
+} from "@/composables/studentManagement";
 
 export default {
   name: "StudentModal",
@@ -441,281 +402,16 @@ export default {
   },
   emits: ["update:modelValue", "submit"],
   setup(props, { emit }) {
-    const fileInput = ref(null);
-    const imagePreview = ref(null);
-    const showHealthExamModal = ref(false);
-    const activeAccordion = ref(null);
-    const currentStep = ref(1);
-    const healthExamFormRef = ref(null);
-    const physicalExamFormRef = ref(null);
-    const showDocumentViewer = ref(false);
-    const selectedDocument = ref("");
-    const formScrollContainer = ref(null);
-
-    const upcomingAppointments = computed(() => {
-      return props.appointments.filter(
-        (apt) => new Date(apt.date) > new Date()
-      );
-    });
-
-    const concludedAppointments = computed(() => {
-      return props.appointments.filter(
-        (apt) => new Date(apt.date) <= new Date()
-      );
-    });
-
-    const formData = ref({
-      profileImage: "",
-      personalInfo: {
-        studentId: "",
-        lastName: "",
-        firstName: "",
-        middleInitial: "",
-        age: "",
-        sex: "",
-        nationality: "",
-        address: "",
-        religion: "",
-      },
-      academicInfo: {
-        course: "",
-        yearLevel: "",
-        schoolYear: "",
-      },
-      emergencyContact: {
-        guardianName: "",
-        guardianOccupation: "",
-        guardianAddress: "",
-        guardianContact: "",
-      },
-      documents: {
-        medicalCertificate: "",
-        urinalysisReport: "",
-        radiologicReport: "",
-        hematologyReport: "",
-        drugTestReport: "",
-        dentalHealthChart: "",
-        healthExam: "",
-        physicalExam: "",
-      },
-      healthExamData: {},
-      physicalExamData: {},
-    });
-
-    // Watch for changes in currentStep to scroll to top
-    watch(currentStep, () => {
-      nextTick(() => {
-        if (formScrollContainer.value) {
-          formScrollContainer.value.scrollTop = 0;
-        }
-      });
-    });
-
-    watch(
-      () => props.initialFormData,
-      (newVal) => {
-        formData.value = {
-          profileImage: newVal.profileImage || "",
-          personalInfo: {
-            studentId: newVal.studentId || "",
-            lastName: newVal.lastName || "",
-            firstName: newVal.firstName || "",
-            middleInitial: newVal.middleInitial || "",
-            age: newVal.age || "",
-            sex: newVal.sex || "",
-            nationality: newVal.nationality || "",
-            address: newVal.address || "",
-            religion: newVal.religion || "",
-          },
-          academicInfo: {
-            course: newVal.course || "",
-            yearLevel: newVal.yearLevel || "",
-            schoolYear: newVal.schoolYear || "",
-          },
-          emergencyContact: {
-            guardianName: newVal.guardianName || "",
-            guardianOccupation: newVal.guardianOccupation || "",
-            guardianAddress: newVal.guardianAddress || "",
-            guardianContact: newVal.guardianContact || "",
-          },
-          documents: {
-            medicalCertificate: newVal.documents?.medicalCertificate || "",
-            urinalysisReport: newVal.documents?.urinalysisReport || "",
-            radiologicReport: newVal.documents?.radiologicReport || "",
-            hematologyReport: newVal.documents?.hematologyReport || "",
-            drugTestReport: newVal.documents?.drugTestReport || "",
-            dentalHealthChart: newVal.documents?.dentalHealthChart || "",
-            healthExam: newVal.documents?.healthExam || "",
-            physicalExam: newVal.documents?.physicalExam || "",
-          },
-          healthExamData: newVal.healthExamData || {},
-          physicalExamData: newVal.physicalExamData || {},
-        };
-        imagePreview.value = newVal.profileImage || null;
-      },
-      { immediate: true, deep: true }
-    );
-
-    function formatDate(date) {
-      return new Date(date).toLocaleDateString("en-US", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    }
-    function updateDocument(documentData) {
-      if (documentData && documentData.key && documentData.data) {
-        formData.value.documents[documentData.key] = documentData.data;
-      }
-    }
-    async function handleImageChange(event) {
-      const file = event.target.files[0];
-      if (file) {
-        const base64 = await handleImageUpload(file);
-        imagePreview.value = base64;
-        formData.value.profileImage = base64;
-      }
-    }
-    async function handleDocumentChange(event, documentKey) {
-      const file = event.target.files[0];
-      if (file) {
-        try {
-          const fileData = await handleDocumentUpload(file);
-          formData.value.documents[documentKey] = fileData.data;
-        } catch (error) {
-          alert(error.message);
-          event.target.value = ""; // Reset file input
-        }
-      }
-    }
-
-    function updateHealthExamData(newData) {
-      formData.value.healthExamData = newData;
-    }
-
-    function updatePhysicalExamData(newData) {
-      formData.value.physicalExamData = newData;
-    }
-
-    async function handleNext() {
-      if (currentStep.value === 2) {
-        if (healthExamFormRef.value) {
-          const healthExamData = healthExamFormRef.value.saveFormData();
-          updateHealthExamData(healthExamData);
-          if (healthExamFormRef.value.generatePdf) {
-            const canvas = await healthExamFormRef.value.generatePdf();
-            formData.value.documents.healthExam = canvas;
-          }
-        }
-      } else if (currentStep.value === 3) {
-        if (physicalExamFormRef.value) {
-          const physicalExamData = physicalExamFormRef.value.saveFormData();
-          updatePhysicalExamData(physicalExamData);
-          if (physicalExamFormRef.value.generatePdf) {
-            const canvas = await physicalExamFormRef.value.generatePdf();
-            formData.value.documents.physicalExam = canvas;
-          }
-        }
-      }
-      currentStep.value++;
-
-      // Scroll to top when changing steps
-      nextTick(() => {
-        if (formScrollContainer.value) {
-          formScrollContainer.value.scrollTop = 0;
-        }
-      });
-    }
-
-    function handlePrevious() {
-      currentStep.value--;
-
-      // Scroll to top when changing steps
-      nextTick(() => {
-        if (formScrollContainer.value) {
-          formScrollContainer.value.scrollTop = 0;
-        }
-      });
-    }
-
-    function viewDocument(documentData) {
-      selectedDocument.value = documentData;
-      showDocumentViewer.value = true;
-    }
-
-    function closeModal() {
-      // Reset to step 1 when closing the modal
-      currentStep.value = 1;
-      emit("update:modelValue", false);
-    }
-
-    function handleBackgroundClick(event) {
-      if (event.target === event.currentTarget) {
-        closeModal();
-      }
-    }
-
-    async function handleFormSubmit() {
-      if (!props.isEditing && currentStep.value < 4) {
-        currentStep.value++;
-        return;
-      }
-
-      const submissionData = {
-        ...formData.value.personalInfo,
-        ...formData.value.academicInfo,
-        ...formData.value.emergencyContact,
-        profileImage: formData.value.profileImage,
-        documents: formData.value.documents,
-        healthExamData: formData.value.healthExamData,
-        physicalExamData: formData.value.physicalExamData,
-        id: formData.value.personalInfo.studentId,
-      };
-
-      closeModal();
-      emit("submit", submissionData);
-    }
-
-    function toggleAccordion(section) {
-      activeAccordion.value =
-        activeAccordion.value === section ? null : section;
-    }
+    const modalFunctions = useStudentModal(props, emit);
 
     return {
-      fileInput,
-      formData,
-      imagePreview,
-      documentLabels,
-      acceptedDocumentTypes,
-      showHealthExamModal,
-      activeAccordion,
-      currentStep,
-      healthExamFormRef,
-      physicalExamFormRef,
-      showDocumentViewer,
-      selectedDocument,
-      upcomingAppointments,
-      concludedAppointments,
-      formScrollContainer,
-      handleImageChange,
-      handleDocumentChange,
-      viewDocument,
-      closeModal,
-      handleBackgroundClick,
-      handleFormSubmit,
-      formatDate,
+      ...modalFunctions,
       courseOptions,
       yearLevelOptions,
       schoolYearOptions,
       sexOptions,
-      toggleAccordion,
-      handleNext,
-      handlePrevious,
-      updateHealthExamData,
-      updatePhysicalExamData,
-      updateDocument,
+      documentLabels,
+      acceptedDocumentTypes,
     };
   },
 };
