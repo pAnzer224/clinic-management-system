@@ -78,16 +78,17 @@
             <!-- Student Selection (only show when adding new record) -->
             <div v-if="!isEditing" class="space-y-4">
               <h3 class="font-satoshi-bold">Student Information</h3>
-              <div class="flex items-center gap-2">
+              <div class="flex items-center">
                 <Dropdown
                   v-model="formData.student"
                   :options="studentOptions"
                   placeholder="Select Student"
+                  class="flex-1"
                 />
                 <button
                   type="button"
                   @click="showStudentModal = true"
-                  class="bg-blue2 text-white p-2 rounded-full hover:bg-blue1"
+                  class="bg-blue2 text-white p-2 rounded-full hover:bg-blue1 ml-2"
                 >
                   <PlusIcon class="size-3" />
                 </button>
@@ -225,9 +226,7 @@
                   >
                     + Add new medication to inventory
                   </button>
-                  <span v-if="noMedicationWarning" class="text-sm text-red-500">
-                    Please add at least one medication
-                  </span>
+                  <!-- Removed the warning message for medications -->
                 </div>
               </div>
 
@@ -324,7 +323,7 @@ export default {
       type: Array,
       required: true,
     },
-    appointments: {
+    studentRecords: {
       type: Array,
       default: () => [],
     },
@@ -333,10 +332,24 @@ export default {
   setup(props, context) {
     const recordModalSetup = useRecordModal(props, context);
 
+    // Modify the addMedication method to preserve form data
+    const originalAddMedication = recordModalSetup.addMedication;
+    recordModalSetup.addMedication = () => {
+      if (
+        recordModalSetup.newMedication.value.medicationId &&
+        recordModalSetup.newMedication.value.dosage
+      ) {
+        originalAddMedication();
+      }
+    };
+
     const originalSubmitForm = recordModalSetup.submitForm;
 
     recordModalSetup.submitForm = async () => {
       try {
+        // Remove medication validation
+        recordModalSetup.noMedicationWarning.value = false;
+
         // Deduct medication stock
         if (recordModalSetup.formData.value.medications) {
           for (const med of recordModalSetup.formData.value.medications) {

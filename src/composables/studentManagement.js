@@ -6,6 +6,8 @@ import {
   query,
   orderBy,
   onSnapshot,
+  where,
+  getDocs,
 } from "firebase/firestore";
 import { handleImageUpload } from "@/utils/image-utils";
 import { handleDocumentUpload } from "@/utils/document-upload-utils";
@@ -360,7 +362,9 @@ export function useStudentsList() {
     JSON.parse(localStorage.getItem("currentUser")) || {}
   );
   const appointments = ref([]);
+  const studentMedicalRecords = ref([]);
   let unsubscribeAppointments = null;
+  let unsubscribeMedicalRecords = null;
 
   function listenToAppointments() {
     const appointmentsQuery = query(
@@ -381,6 +385,25 @@ export function useStudentsList() {
         console.error("Error fetching appointments:", error);
       }
     );
+  }
+
+  async function fetchMedicalRecords(studentId) {
+    try {
+      const medicalsRef = collection(db, "medicalRecords");
+      const q = query(
+        medicalsRef,
+        where("studentId", "==", studentId),
+        orderBy("date", "desc")
+      );
+      const snapshot = await getDocs(q);
+      studentMedicalRecords.value = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    } catch (error) {
+      console.error("Error fetching medical records:", error);
+      studentMedicalRecords.value = [];
+    }
   }
 
   const yearFilterOptions = computed(() => {
@@ -440,12 +463,17 @@ export function useStudentsList() {
   function add() {
     isEditing.value = false;
     formData.value = { ...INITIAL_FORM };
+    studentMedicalRecords.value = []; // Clear medical records when adding new student
     showModal.value = true;
   }
 
-  function editStudent(student) {
+  async function editStudent(student) {
     isEditing.value = true;
     formData.value = { ...student };
+
+    // Fetch medical records for this student
+    await fetchMedicalRecords(student.studentId);
+
     showModal.value = true;
   }
 
@@ -510,6 +538,9 @@ export function useStudentsList() {
     if (unsubscribeAppointments) {
       unsubscribeAppointments();
     }
+    if (unsubscribeMedicalRecords) {
+      unsubscribeMedicalRecords();
+    }
     stopListening();
   }
 
@@ -530,11 +561,13 @@ export function useStudentsList() {
     toastMessage,
     currentUser,
     appointments,
+    studentMedicalRecords,
     initializeStudents,
     add,
     editStudent,
     deleteStudent,
     submitForm,
     cleanup,
+    fetchMedicalRecords,
   };
 }

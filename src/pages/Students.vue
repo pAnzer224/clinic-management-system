@@ -131,6 +131,7 @@
       :is-editing="isEditing"
       :initial-form-data="formData"
       :appointments="appointments"
+      :medical-records="studentMedicalRecords"
       @submit="submitForm"
     />
 
@@ -185,6 +186,7 @@ export default {
       toastMessage,
       currentUser,
       appointments,
+      studentMedicalRecords,
       initializeStudents,
       add,
       editStudent,
@@ -218,6 +220,7 @@ export default {
       toastMessage,
       currentUser,
       appointments,
+      studentMedicalRecords,
       add,
       editStudent,
       deleteStudent,
