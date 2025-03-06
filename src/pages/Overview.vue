@@ -221,10 +221,13 @@ export default {
       },
     ]);
 
-    const selectedAcademicYear = ref("2024-2025");
+    const selectedAcademicYear = ref("All");
     const academicYearOptions = computed(() => {
       const years = JSON.parse(localStorage.getItem("academicYears") || "[]");
-      return years.map((year) => ({ value: year, label: year }));
+      return [
+        { value: "All", label: "All Years" },
+        ...years.map((year) => ({ value: year, label: year })),
+      ];
     });
 
     const courseChartOptions = {
@@ -311,10 +314,18 @@ export default {
     });
 
     const fetchStudentsByAcademicYear = (academicYear) => {
-      const studentsQuery = query(
-        collection(db, "students"),
-        where("schoolYear", "==", academicYear)
-      );
+      let studentsQuery;
+
+      if (academicYear === "All") {
+        // If "All" is selected, fetch all students without year filter
+        studentsQuery = collection(db, "students");
+      } else {
+        // Otherwise, filter by selected academic year
+        studentsQuery = query(
+          collection(db, "students"),
+          where("schoolYear", "==", academicYear)
+        );
+      }
 
       onSnapshot(studentsQuery, (snapshot) => {
         updateCourseChart(snapshot);

@@ -60,7 +60,7 @@
       </div>
       <div class="grid grid-cols-4 gap-2 text-sm">
         <button
-          v-for="(slot, index) in timeSlots"
+          v-for="(slot, index) in slots"
           :key="index"
           @click="selectTime(index)"
           :class="[
@@ -80,6 +80,9 @@
 <script>
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/vue/24/solid";
 import { CalendarIcon, ClockIcon } from "@heroicons/vue/24/outline";
+import { ref, watch, onMounted } from "vue";
+import { doc, onSnapshot } from "firebase/firestore";
+import { db } from "@/firebase-config";
 
 export default {
   name: "AppointmentCalendar",
@@ -90,33 +93,53 @@ export default {
     ClockIcon,
   },
   props: {
-    timeSlots: {
-      type: Array,
-      required: true,
-    },
     appointments: {
       type: Array,
       required: true,
     },
   },
-  data() {
-    return {
-      currentMonth: new Date(),
-      selectedDay: null,
-      selectedTime: null,
-      weekDays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-    };
-  },
-  computed: {
-    monthYear() {
-      return this.currentMonth.toLocaleDateString("en-US", {
+  setup(props, { emit }) {
+    const currentMonth = ref(new Date());
+    const selectedDay = ref(null);
+    const selectedTime = ref(null);
+    const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const slots = ref([]);
+    let unsubscribeSettings = null;
+
+    const monthYear = ref(
+      currentMonth.value.toLocaleDateString("en-US", {
         month: "long",
         year: "numeric",
+      })
+    );
+
+    const calendarDays = ref([]);
+
+    // Load time slots from Firestore
+    onMounted(() => {
+      // Listen to time slots from settings
+      const settingsRef = doc(db, "settings", "timeSlots");
+      unsubscribeSettings = onSnapshot(settingsRef, (doc) => {
+        if (doc.exists()) {
+          slots.value = doc.data().slots;
+        } else {
+          // Default time slots if none exist
+          slots.value = [
+            "9:00 AM",
+            "10:00 AM",
+            "11:00 AM",
+            "1:00 PM",
+            "2:00 PM",
+            "3:00 PM",
+            "4:00 PM",
+          ];
+        }
       });
-    },
-    calendarDays() {
-      const year = this.currentMonth.getFullYear();
-      const month = this.currentMonth.getMonth();
+    });
+
+    const updateCalendarDays = () => {
+      const year = currentMonth.value.getFullYear();
+      const month = currentMonth.value.getMonth();
       const firstDay = new Date(year, month, 1);
       const lastDay = new Date(year, month + 1, 0);
       const daysInMonth = lastDay.getDate();
@@ -137,43 +160,48 @@ export default {
           date: date,
           isPast: date < today,
           isSelected:
-            this.selectedDay &&
-            date.getDate() === this.selectedDay.getDate() &&
-            date.getMonth() === this.selectedDay.getMonth() &&
-            date.getFullYear() === this.selectedDay.getFullYear(),
+            selectedDay.value &&
+            date.getDate() === selectedDay.value.getDate() &&
+            date.getMonth() === selectedDay.value.getMonth() &&
+            date.getFullYear() === selectedDay.value.getFullYear(),
         });
       }
 
-      return days;
-    },
-  },
-  methods: {
-    prevMonth() {
-      this.currentMonth = new Date(
-        this.currentMonth.getFullYear(),
-        this.currentMonth.getMonth() - 1
+      calendarDays.value = days;
+    };
+
+    const prevMonth = () => {
+      currentMonth.value = new Date(
+        currentMonth.value.getFullYear(),
+        currentMonth.value.getMonth() - 1
       );
-    },
-    nextMonth() {
-      this.currentMonth = new Date(
-        this.currentMonth.getFullYear(),
-        this.currentMonth.getMonth() + 1
+      updateCalendarDays();
+    };
+
+    const nextMonth = () => {
+      currentMonth.value = new Date(
+        currentMonth.value.getFullYear(),
+        currentMonth.value.getMonth() + 1
       );
-    },
-    selectDay(date) {
-      this.selectedDay = date;
-      this.selectedTime = null;
-      this.$emit("day-selected", date);
-    },
-    selectTime(index) {
-      this.selectedTime = index;
-      this.$emit("time-selected", {
-        date: this.selectedDay,
-        time: this.timeSlots[index],
+      updateCalendarDays();
+    };
+
+    const selectDay = (date) => {
+      selectedDay.value = date;
+      selectedTime.value = null;
+      emit("day-selected", date);
+    };
+
+    const selectTime = (index) => {
+      selectedTime.value = index;
+      emit("time-selected", {
+        date: selectedDay.value,
+        time: slots.value[index],
       });
-    },
-    hasAppointment(date) {
-      return this.appointments.some((appointment) => {
+    };
+
+    const hasAppointment = (date) => {
+      return props.appointments.some((appointment) => {
         const appointmentDate = new Date(appointment.date);
         return (
           appointmentDate.getDate() === date.getDate() &&
@@ -181,7 +209,26 @@ export default {
           appointmentDate.getFullYear() === date.getFullYear()
         );
       });
-    },
+    };
+
+    watch(() => props.appointments, updateCalendarDays);
+
+    updateCalendarDays();
+
+    return {
+      currentMonth,
+      selectedDay,
+      selectedTime,
+      slots,
+      weekDays,
+      monthYear,
+      calendarDays,
+      prevMonth,
+      nextMonth,
+      selectDay,
+      selectTime,
+      hasAppointment,
+    };
   },
 };
 </script>

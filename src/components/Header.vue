@@ -21,6 +21,18 @@
         </router-link>
       </div>
       <div class="flex items-center gap-4 sm:gap-6">
+        <!-- Date and Time Display -->
+        <div class="relative group">
+          <Clock
+            class="size text-gray-400 hover:text-blue1 transition-colors cursor-pointer"
+          />
+          <div
+            class="absolute z-10 bottom-[-40px] left-1/2 transform -translate-x-1/2 bg-gray-800/70 text-background text-sm rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap"
+          >
+            {{ formattedDateTime }}
+          </div>
+        </div>
+
         <router-link
           to="/medications"
           class="hidden sm:block"
@@ -49,20 +61,7 @@
           >Settings</router-link
         >
         <button @click="toggleMenu" class="sm:hidden">
-          <svg
-            class="w-6 h-6"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M4 6h16M4 12h16m-7 6h7"
-            ></path>
-          </svg>
+          <Menu class="w-6 h-6" />
         </button>
       </div>
     </div>
@@ -99,16 +98,34 @@
 </template>
 
 <script>
+import { Clock, Menu } from "lucide-vue-next";
+
 export default {
   name: "Header",
+  components: {
+    Clock,
+    Menu,
+  },
   data() {
     return {
       isMenuOpen: false,
+      formattedDateTime: this.getCurrentDateTime(),
     };
   },
   methods: {
     toggleMenu() {
       this.isMenuOpen = !this.isMenuOpen;
+    },
+    getCurrentDateTime() {
+      const now = new Date();
+      return now.toLocaleString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
     },
   },
 };

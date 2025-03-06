@@ -14,7 +14,6 @@
     <div class="grid grid-cols-3 gap-4">
       <div class="col-span-2">
         <AppointmentCalendar
-          :timeSlots="timeSlots"
           :appointments="appointments"
           @day-selected="handleDaySelected"
           @time-selected="handleTimeSelected"
@@ -192,6 +191,17 @@
               placeholder="Select Time Slot"
               required
             />
+            <p
+              class="text-sm text-gray-500 mt-2 flex items-center tracking-wide font-satoshi-italic"
+            >
+              <span class="mr-1">Manage time slots in</span>
+              <router-link
+                to="/settings"
+                class="text-blue1 hover:underline font-satoshi-medium"
+              >
+                Settings
+              </router-link>
+            </p>
           </div>
           <div>
             <label class="block mb-1">Reason for Visit</label>
@@ -281,13 +291,20 @@ export default {
     const currentIndex = ref(0);
     const showToast = ref(false);
     const toastMessage = ref("");
+    const timeSlots = ref([]);
     const currentUser = ref(
       JSON.parse(localStorage.getItem("currentUser")) || {}
     );
 
+    // Computed property for time slot options format needed by Dropdown
+    const timeSlotOptions = computed(() => {
+      return timeSlots.value.map((slot) => ({ value: slot, label: slot }));
+    });
+
     // Unsubscribe functions for cleanup
     let unsubscribeAppointments = null;
     let unsubscribeStudents = null;
+    let unsubscribeSettings = null;
 
     function showNotification(message) {
       toastMessage.value = message;
@@ -315,30 +332,6 @@ export default {
       guardianContact: "",
       profileImage: "",
       labTest: "",
-    });
-
-    const timeSlots = [
-      "09:00 AM",
-      "09:30 AM",
-      "10:00 AM",
-      "10:30 AM",
-      "11:00 AM",
-      "11:30 AM",
-      "01:00 PM",
-      "01:30 PM",
-      "02:00 PM",
-      "02:30 PM",
-      "03:00 PM",
-      "03:30 PM",
-      "04:00 PM",
-      "04:30 PM",
-    ];
-
-    const timeSlotOptions = computed(() => {
-      return timeSlots.map((time) => ({
-        value: time,
-        label: time,
-      }));
     });
 
     const studentOptions = computed(() => {
@@ -435,6 +428,27 @@ export default {
           showNotification("Error loading appointments data");
         }
       );
+    }
+
+    // Get time slots from Settings
+    function listenToTimeSlots() {
+      const settingsRef = doc(db, "settings", "timeSlots");
+      unsubscribeSettings = onSnapshot(settingsRef, (doc) => {
+        if (doc.exists()) {
+          timeSlots.value = doc.data().slots;
+        } else {
+          // Default time slots if none exist yet
+          timeSlots.value = [
+            "9:00 AM",
+            "10:00 AM",
+            "11:00 AM",
+            "1:00 PM",
+            "2:00 PM",
+            "3:00 PM",
+            "4:00 PM",
+          ];
+        }
+      });
     }
 
     function formatDate(dateString) {
@@ -606,6 +620,7 @@ export default {
     onMounted(() => {
       listenToAppointments();
       listenToStudents();
+      listenToTimeSlots();
     });
 
     onUnmounted(() => {
@@ -614,6 +629,9 @@ export default {
       }
       if (unsubscribeStudents) {
         unsubscribeStudents();
+      }
+      if (unsubscribeSettings) {
+        unsubscribeSettings();
       }
     });
 
@@ -629,7 +647,6 @@ export default {
       selectedStudent,
       appointmentForm,
       studentFormData,
-      timeSlots,
       timeSlotOptions,
       studentOptions,
       currentIndex,

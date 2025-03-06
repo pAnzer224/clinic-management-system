@@ -1,11 +1,11 @@
 <template>
   <div
     v-if="modelValue"
-    class="fixed inset-0 z-50 bg-text/50 flex justify-center items-center"
-    @click="handleBackgroundClick"
+    class="fixed inset-0 flex justify-center items-center z-[9999]"
   >
+    <div class="fixed inset-0 bg-black/50" @click="handleBackgroundClick"></div>
     <div
-      class="bg-white rounded-2xl p-8 shadow-lg w-[700px] h-[90vh] overflow-hidden relative"
+      class="relative bg-white rounded-2xl p-8 shadow-lg w-[700px] h-[90vh] overflow-hidden z-[9999]"
       @click.stop
     >
       <div class="sticky top-0 bg-white z-20 mb-6">
