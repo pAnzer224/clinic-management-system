@@ -144,7 +144,7 @@ export default {
       { name: "HM", count: 0, students: [] },
     ]);
     const openIndex = ref(null);
-    const isMainAccordionOpen = ref(true);
+    const isMainAccordionOpen = ref(false);
 
     const toggleMainAccordion = () => {
       isMainAccordionOpen.value = !isMainAccordionOpen.value;
