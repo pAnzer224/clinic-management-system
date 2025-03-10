@@ -31,6 +31,9 @@
       </div>
     </div>
 
+    <!-- Students Requiring Medication Accordion -->
+    <CourseAccordion :selectedAcademicYear="selectedAcademicYear" />
+
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <!-- Students by Course -->
@@ -161,6 +164,7 @@ import {
   ActivityIcon,
 } from "lucide-vue-next";
 import Dropdown from "@/components/Dropdown.vue";
+import CourseAccordion from "@/components/CourseAccordion.vue";
 
 export default {
   name: "Overview",
@@ -176,6 +180,7 @@ export default {
     TrashIcon,
     Trash2,
     Dropdown,
+    CourseAccordion,
   },
   setup() {
     const currentUser = ref(

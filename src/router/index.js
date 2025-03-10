@@ -47,12 +47,7 @@ const routes = [
     component: () => import("@/pages/Alerts.vue"),
     meta: { requiresAuth: true },
   },
-  {
-    path: "/sops",
-    name: "SOPs",
-    component: () => import("@/pages/SOPs.vue"),
-    meta: { requiresAuth: true },
-  },
+
   {
     path: "/security",
     name: "Security",
