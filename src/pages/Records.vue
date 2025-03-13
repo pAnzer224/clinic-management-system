@@ -153,8 +153,19 @@ import {
   MagnifyingGlassIcon,
 } from "@heroicons/vue/24/outline";
 import RecordModal from "@/components/RecordModal.vue";
+import StudentModal from "@/components/StudentModal.vue";
 import { IntersectingCirclesSpinner } from "epic-spinners";
 import Dropdown from "@/components/Dropdown.vue";
+import { ref } from "vue";
+import {
+  collection,
+  getDocs,
+  setDoc,
+  doc,
+  serverTimestamp,
+} from "firebase/firestore";
+import { db } from "@/firebase-config";
+import { logActivity } from "@/utils/activity-logger";
 
 export default {
   name: "Records",
@@ -166,9 +177,75 @@ export default {
     MagnifyingGlassIcon,
     IntersectingCirclesSpinner,
     Dropdown,
+    StudentModal,
   },
   setup() {
-    return useRecordsList();
+    const recordsList = useRecordsList();
+    const showStudentModal = ref(false);
+    const studentFormData = ref({
+      studentId: "",
+      lastName: "",
+      firstName: "",
+      middleInitial: "",
+      age: "",
+      sex: "",
+      nationality: "",
+      address: "",
+      religion: "",
+      course: "",
+      yearLevel: "1st Year",
+      guardianName: "",
+      guardianOccupation: "",
+      guardianAddress: "",
+      guardianContact: "",
+      profileImage: "",
+      labTest: "",
+    });
+
+    async function handleStudentSubmit(data) {
+      try {
+        const studentData = {
+          ...data,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+
+        await setDoc(doc(db, "students", data.studentId), studentData);
+
+        await logActivity({
+          type: "student",
+          action: "create",
+          title: "New Student Added",
+          description: `Added new student ${data.firstName} ${data.lastName}`,
+          timestamp: serverTimestamp(),
+          performedBy: currentUser.value,
+        });
+
+        formData.value.student = studentData;
+        formData.value.studentId = studentData.studentId;
+        formData.value.studentName = `${studentData.firstName} ${studentData.lastName}`;
+        await fetchStudentData(studentData.studentId);
+
+        showStudentModal.value = false;
+
+        // Show success notification
+        const toast = useToast();
+        toast.success(
+          `Student ${studentData.firstName} ${studentData.lastName} added successfully`
+        );
+      } catch (error) {
+        console.error("Error saving student:", error);
+        const toast = useToast();
+        toast.error("Error adding student");
+      }
+    }
+
+    return {
+      ...recordsList,
+      showStudentModal,
+      studentFormData,
+      handleStudentSubmit,
+    };
   },
 };
 </script>

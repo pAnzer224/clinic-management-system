@@ -4,10 +4,11 @@
 
     <!-- Stats Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div
+      <router-link
         v-for="stat in stats"
         :key="stat.title"
-        class="bg-gradient-to-tr from-blue1/40 to-blue3/30 p-6 rounded-2xl shadow-sm"
+        :to="stat.route"
+        class="bg-gradient-to-tr from-blue1/40 to-blue3/30 p-6 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
       >
         <div class="flex items-center justify-between">
           <div>
@@ -28,39 +29,32 @@
           {{ stat.trend >= 0 ? "+" : "" }}{{ stat.trend.toFixed(1) }}% from last
           month
         </p>
-      </div>
+      </router-link>
     </div>
 
-    <!-- Students Requiring Medication Accordion -->
+    <!-- Students by Course (Former Accordion) -->
     <CourseAccordion :selectedAcademicYear="selectedAcademicYear" />
 
     <!-- Charts Row -->
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <!-- Students by Course -->
+      <!-- Students Requiring Medication by Course -->
       <div class="bg-white p-6 rounded-2xl shadow-sm">
         <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-satoshi-medium">Students by Course</h2>
+          <h2 class="text-lg font-satoshi-medium">
+            Students Requiring Medication by Course
+          </h2>
           <Dropdown
             v-model="selectedAcademicYear"
             :options="academicYearOptions"
-            class="w-40"
+            class="w-32 text-sm"
           />
         </div>
 
-        <p
-          class="text-xs text-gray-500 mb-4 flex justify-end font-satoshi-italic tracking-wide"
-        >
-          Manage academic years in&nbsp;
-          <router-link to="/settings" class="text-blue1 hover:underline">
-            Settings
-          </router-link>
-        </p>
-
         <apexchart
-          type="bar"
+          type="pie"
           height="350"
-          :options="courseChartOptions"
-          :series="courseChartSeries"
+          :options="medicationChartOptions"
+          :series="medicationChartSeries"
         />
       </div>
 
@@ -118,7 +112,7 @@
           </div>
           <button
             v-if="currentUser.role === 'admin'"
-            @click="deleteActivity(activity.id)"
+            @click.prevent="deleteActivity(activity.id)"
             class="text-red-500 hover:text-red-700 p-2 hover:bg-red-100 rounded-full"
           >
             <Trash2 class="h-5 w-5" />
@@ -194,6 +188,7 @@ export default {
         icon: UsersIcon,
         collection: "students",
         filter: null,
+        route: "/students",
       },
       {
         title: "Today's Appointments",
@@ -207,6 +202,7 @@ export default {
           const appointmentDate = new Date(doc.data().date);
           return appointmentDate.toDateString() === today.toDateString();
         },
+        route: "/appointments",
       },
       {
         title: "Available Medications",
@@ -215,6 +211,7 @@ export default {
         icon: PillIcon,
         collection: "medications",
         filter: (doc) => doc.data().status === "In Stock",
+        route: "/medications",
       },
       {
         title: "Medical Records",
@@ -223,6 +220,7 @@ export default {
         icon: ClipboardIcon,
         collection: "medicalRecords",
         filter: null,
+        route: "/records",
       },
     ]);
 
@@ -235,31 +233,43 @@ export default {
       ];
     });
 
-    const courseChartOptions = {
+    // Medication Pie Chart Options
+    const medicationChartOptions = {
       chart: {
-        type: "bar",
-        height: 350,
+        type: "pie",
       },
-      plotOptions: {
-        bar: {
-          horizontal: true,
+      labels: ["BSIT", "BSHM", "BSCRIM", "BSAB", "BSED", "BEED"],
+      colors: [
+        "#D551D0", // Violet for BSIT
+        "#D5D051", // Yellow for BSHM
+        "#800000", // A72335 for BSCRIM
+        "#51D566", // Green for BSAB
+        "#517ED5", // Blue for BSED
+        "#51AED5", // Light blue for BEED
+      ],
+      legend: {
+        position: "right",
+      },
+      tooltip: {
+        y: {
+          formatter: function (value) {
+            return value + " students";
+          },
         },
       },
-      xaxis: {
-        categories: ["BSCRIM", "BEED", "BSED", "BSIT", "BSAB", "HM"],
-      },
-      colors: ["#3B82F6"],
-      legend: {
-        position: "bottom",
+      dataLabels: {
+        formatter: function (val, opts) {
+          return (
+            opts.w.globals.series[opts.seriesIndex] +
+            " (" +
+            val.toFixed(0) +
+            "%)"
+          );
+        },
       },
     };
 
-    const courseChartSeries = ref([
-      {
-        name: "Students",
-        data: [0, 0, 0, 0, 0, 0],
-      },
-    ]);
+    const medicationChartSeries = ref([0, 0, 0, 0, 0, 0]);
 
     const appointmentChartOptions = {
       chart: {
@@ -312,29 +322,74 @@ export default {
       });
     });
 
-    // Watch for changes in selectedAcademicYear and update chart
+    // Watch for changes in selectedAcademicYear and update charts
     watch(selectedAcademicYear, (newYear) => {
-      // Fetch students with the selected academic year
-      fetchStudentsByAcademicYear(newYear);
+      fetchMedicationData(newYear);
     });
 
-    const fetchStudentsByAcademicYear = (academicYear) => {
-      let studentsQuery;
+    const fetchMedicationData = async (academicYear) => {
+      try {
+        // Initialize counts for each course
+        const courseMap = {
+          BSIT: 0,
+          BSHM: 0,
+          BSCRIM: 0,
+          BSAB: 0,
+          BSED: 0,
+          BEED: 0,
+        };
 
-      if (academicYear === "All") {
-        // If "All" is selected, fetch all students without year filter
-        studentsQuery = collection(db, "students");
-      } else {
-        // Otherwise, filter by selected academic year
-        studentsQuery = query(
-          collection(db, "students"),
-          where("schoolYear", "==", academicYear)
-        );
+        // Get all students requiring medication based on medical records
+        const recordsRef = collection(db, "medicalRecords");
+        const recordsSnapshot = await getDocs(recordsRef);
+
+        // Create a set of student IDs requiring medication
+        const studentsWithMedication = new Set();
+
+        recordsSnapshot.forEach((doc) => {
+          const record = doc.data();
+          if (record.medications && record.medications.length > 0) {
+            studentsWithMedication.add(record.studentId);
+          }
+        });
+
+        // Query students collection based on academic year
+        let studentsQuery;
+        if (academicYear === "All") {
+          studentsQuery = collection(db, "students");
+        } else {
+          studentsQuery = query(
+            collection(db, "students"),
+            where("schoolYear", "==", academicYear)
+          );
+        }
+
+        const studentsSnapshot = await getDocs(studentsQuery);
+
+        // Count students with medications by course
+        studentsSnapshot.forEach((doc) => {
+          const student = doc.data();
+          if (studentsWithMedication.has(student.studentId)) {
+            // Normalize course name to handle case inconsistencies
+            const courseName = student.course.toUpperCase();
+            if (courseMap.hasOwnProperty(courseName)) {
+              courseMap[courseName]++;
+            }
+          }
+        });
+
+        // Update chart series with the count data
+        medicationChartSeries.value = [
+          courseMap.BSIT,
+          courseMap.BSHM,
+          courseMap.BSCRIM,
+          courseMap.BSAB,
+          courseMap.BSED,
+          courseMap.BEED,
+        ];
+      } catch (error) {
+        console.error("Error fetching medication data:", error);
       }
-
-      onSnapshot(studentsQuery, (snapshot) => {
-        updateCourseChart(snapshot);
-      });
     };
 
     const getMonthlyStats = async (collectionName, filter = null) => {
@@ -449,35 +504,8 @@ export default {
         }
       }
 
-      // Initial chart update on load (will be filtered by watch later)
-      const studentsSnapshot = await getDocs(collection(db, "students"));
-      updateCourseChart(studentsSnapshot, true);
-    };
-
-    const updateCourseChart = (snapshot, initialLoad = false) => {
-      const courseCounts = {
-        BSCRIM: 0,
-        BEED: 0,
-        BSED: 0,
-        BSIT: 0,
-        BSAB: 0,
-        HM: 0,
-      };
-
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        // If this is the initial load, only count students from the selected academic year
-        if (initialLoad && data.schoolYear !== selectedAcademicYear.value) {
-          return;
-        }
-
-        const course = data.course;
-        if (courseCounts.hasOwnProperty(course)) {
-          courseCounts[course]++;
-        }
-      });
-
-      courseChartSeries.value[0].data = Object.values(courseCounts);
+      // Initial medication data load
+      fetchMedicationData(selectedAcademicYear.value);
     };
 
     const fetchRecentActivities = () => {
@@ -558,14 +586,12 @@ export default {
     onMounted(() => {
       fetchStats();
       fetchRecentActivities();
-      // Initial load of students filtered by academic year
-      fetchStudentsByAcademicYear(selectedAcademicYear.value);
     });
 
     return {
       stats,
-      courseChartOptions,
-      courseChartSeries,
+      medicationChartOptions,
+      medicationChartSeries,
       appointmentChartOptions,
       appointmentChartSeries,
       recentActivities,

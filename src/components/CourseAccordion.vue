@@ -1,56 +1,80 @@
 <template>
-  <div class="bg-white p-6 rounded-2xl shadow-sm mb-4">
-    <div
-      class="flex justify-between items-center cursor-pointer py-1"
-      @click="toggleMainAccordion"
-    >
+  <div
+    class="bg-white p-6 rounded-2xl shadow-sm mb-4 cursor-pointer"
+    @click="toggleAll"
+  >
+    <div class="flex items-center justify-between">
       <h2 class="text-lg font-satoshi-medium flex items-center gap-2">
-        <ClipboardListIcon class="h-5 w-5 text-blue1" />
-        Students Requiring Medication by Course
+        <UsersIcon class="h-5 w-5 text-blue1" />
+        Students by Course
+        <div class="p-2 rounded-full hover:bg-blue1/10 transition-colors">
+          <ChevronDownIcon
+            class="h-5 w-5 text-gray-400 transition-transform duration-200"
+            :class="{ 'rotate-180': isAllOpen }"
+          />
+        </div>
       </h2>
-      <div class="p-2 hover:bg-blue1/15 hover:rounded-full">
-        <ChevronDownIcon
-          class="size-6 text-gray-400 transition-transform duration-200"
-          :class="{ 'rotate-180': isMainAccordionOpen }"
+      <div class="flex items-center gap-2">
+        <Dropdown
+          v-if="isAllOpen"
+          v-model="selectedYear"
+          :options="academicYearOptions"
+          class="w-32 text-sm"
+          @click.stop
         />
       </div>
     </div>
 
-    <div
-      v-show="isMainAccordionOpen"
-      class="space-y-2 transition-all duration-300 mt-4"
+    <!-- Removed the min-height div and made it conditional -->
+    <p
+      v-if="isAllOpen"
+      class="text-xs text-gray-500 mt-2 mb-4 flex justify-end font-satoshi-italic tracking-wide"
     >
+      Manage academic years in&nbsp;
+      <router-link
+        to="/settings"
+        class="text-blue1 hover:underline"
+        @click.stop
+      >
+        Settings
+      </router-link>
+    </p>
+
+    <div v-if="isAllOpen" class="space-y-2 transition-all duration-300 mt-4">
       <div
-        v-for="(course, index) in courses"
+        v-for="(course, index) in sortedCourses"
         :key="course.name"
         class="border border-gray-200 rounded-lg overflow-hidden"
       >
         <div
           class="flex justify-between items-center p-4 cursor-pointer hover:bg-blue1/5 transition-colors"
-          @click="toggleCourse(index)"
+          @click.stop="toggleCourse(index)"
         >
           <div class="flex items-center gap-3">
             <div
-              class="w-10 h-10 rounded-full bg-blue1/10 flex items-center justify-center"
+              class="w-10 h-10 rounded-full flex items-center justify-center"
+              :style="{ backgroundColor: getCourseColorBg(course.name) }"
             >
               <component
                 :is="getCourseIcon(course.name)"
-                class="h-5 w-5 text-blue1"
+                class="h-5 w-5"
+                :style="{ color: getCourseColor(course.name) }"
               />
             </div>
             <div>
               <h3 class="font-satoshi-medium">{{ course.name }}</h3>
               <p class="text-sm text-gray-500">
                 {{ course.count }}
-                {{ course.count === 1 ? "student" : "students" }} requiring
-                medication
+                {{ course.count === 1 ? "student" : "students" }} enrolled
               </p>
             </div>
           </div>
-          <ChevronDownIcon
-            class="h-5 w-5 text-gray-400 transition-transform duration-200"
-            :class="{ 'rotate-180': openIndex === index }"
-          />
+          <div class="p-2 rounded-full hover:bg-blue1/10 transition-colors">
+            <ChevronDownIcon
+              class="h-5 w-5 text-gray-400 transition-transform duration-200"
+              :class="{ 'rotate-180': openIndex === index }"
+            />
+          </div>
         </div>
 
         <div
@@ -87,10 +111,10 @@
               </div>
               <div class="text-right">
                 <p class="text-blue1 font-medium">
-                  {{ student.medicationCount }} medications
+                  {{ student.year }}
                 </p>
                 <p class="text-xs text-gray-500">
-                  Last updated: {{ student.lastUpdated }}
+                  Admitted: {{ student.admissionDate }}
                 </p>
               </div>
             </div>
@@ -102,31 +126,33 @@
 </template>
 
 <script>
-import { ref, onMounted, watch } from "vue";
+import { ref, onMounted, watch, computed } from "vue";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import {
   BookOpenIcon,
   ChevronDownIcon,
-  ClipboardListIcon,
+  UsersIcon,
   GavelIcon,
   GraduationCapIcon,
   ComputerIcon,
   CalculatorIcon,
   UtensilsIcon,
 } from "lucide-vue-next";
+import Dropdown from "@/components/Dropdown.vue";
 
 export default {
   name: "CourseAccordion",
   components: {
     BookOpenIcon,
     ChevronDownIcon,
-    ClipboardListIcon,
+    UsersIcon,
     GavelIcon,
     GraduationCapIcon,
     ComputerIcon,
     CalculatorIcon,
     UtensilsIcon,
+    Dropdown,
   },
   props: {
     selectedAcademicYear: {
@@ -135,19 +161,36 @@ export default {
     },
   },
   setup(props) {
-    const courses = ref([
-      { name: "BSCRIM", count: 0, students: [] },
-      { name: "BEED", count: 0, students: [] },
-      { name: "BSED", count: 0, students: [] },
-      { name: "BSIT", count: 0, students: [] },
-      { name: "BSAB", count: 0, students: [] },
-      { name: "HM", count: 0, students: [] },
-    ]);
-    const openIndex = ref(null);
-    const isMainAccordionOpen = ref(false);
+    const selectedYear = ref(props.selectedAcademicYear);
+    const academicYearOptions = computed(() => {
+      const years = JSON.parse(localStorage.getItem("academicYears") || "[]");
+      return [
+        { value: "All", label: "All Years" },
+        ...years.map((year) => ({ value: year, label: year })),
+      ];
+    });
 
-    const toggleMainAccordion = () => {
-      isMainAccordionOpen.value = !isMainAccordionOpen.value;
+    const courses = ref([
+      { name: "BSCRIM", count: 0, students: [], order: 1 },
+      { name: "BEED", count: 0, students: [], order: 2 },
+      { name: "BSED", count: 0, students: [], order: 3 },
+      { name: "BSIT", count: 0, students: [], order: 4 },
+      { name: "BSAB", count: 0, students: [], order: 5 },
+      { name: "BSHM", count: 0, students: [], order: 6 },
+    ]);
+
+    const sortedCourses = computed(() => {
+      return [...courses.value].sort((a, b) => a.order - b.order);
+    });
+
+    const openIndex = ref(null);
+    const isAllOpen = ref(false);
+
+    const toggleAll = () => {
+      isAllOpen.value = !isAllOpen.value;
+      if (!isAllOpen.value) {
+        openIndex.value = null;
+      }
     };
 
     const toggleCourse = (index) => {
@@ -165,14 +208,52 @@ export default {
           return ComputerIcon;
         case "BSAB":
           return CalculatorIcon;
-        case "HM":
+        case "BSHM":
           return UtensilsIcon;
         default:
           return BookOpenIcon;
       }
     };
 
-    const fetchMedicationData = async () => {
+    const getCourseColor = (courseName) => {
+      switch (courseName) {
+        case "BSCRIM":
+          return "#800000"; // Maroon
+        case "BEED":
+          return "#228B22"; // Forest green (unchanged)
+        case "BSED":
+          return "#0000FF"; // Blue
+        case "BSIT":
+          return "#8A2BE2"; // Violet
+        case "BSAB":
+          return "#008000"; // Green
+        case "BSHM":
+          return "#FFD700"; // Yellow
+        default:
+          return "#4169E1"; // Royal blue
+      }
+    };
+
+    const getCourseColorBg = (courseName) => {
+      switch (courseName) {
+        case "BSCRIM":
+          return "#FFD1D1"; // Light maroon
+        case "BEED":
+          return "#CCFFCC"; // Light green (unchanged)
+        case "BSED":
+          return "#D1D1FF"; // Light blue
+        case "BSIT":
+          return "#E8D1FF"; // Light violet
+        case "BSAB":
+          return "#D1FFD1"; // Light green
+        case "BSHM":
+          return "#FFFFD1"; // Light yellow
+        default:
+          return "#CCCCFF"; // Light blue-purple
+      }
+    };
+
+    const fetchStudentData = async () => {
       try {
         // Reset counts
         courses.value.forEach((course) => {
@@ -180,47 +261,14 @@ export default {
           course.students = [];
         });
 
-        // gets all medical records
-        const recordsQuery = collection(db, "medicalRecords");
-        const recordsSnapshot = await getDocs(recordsQuery);
-
-        // Create a map of student IDs to their medication counts
-        const studentMedicationMap = {};
-
-        recordsSnapshot.forEach((doc) => {
-          const record = doc.data();
-          const studentId = record.studentId;
-
-          if (!studentMedicationMap[studentId]) {
-            studentMedicationMap[studentId] = {
-              count: 0,
-              lastUpdated: record.date ? new Date(record.date) : new Date(),
-              medications: [],
-            };
-          }
-
-          if (record.medications && record.medications.length > 0) {
-            studentMedicationMap[studentId].count += record.medications.length;
-            studentMedicationMap[studentId].medications.push(
-              ...record.medications
-            );
-
-            // Update last updated date if this record is newer
-            const recordDate = record.date ? new Date(record.date) : new Date();
-            if (recordDate > studentMedicationMap[studentId].lastUpdated) {
-              studentMedicationMap[studentId].lastUpdated = recordDate;
-            }
-          }
-        });
-
-        // Now get all students
+        // Get all students based on academic year selection
         let studentsQuery;
-        if (props.selectedAcademicYear === "All") {
+        if (selectedYear.value === "All") {
           studentsQuery = collection(db, "students");
         } else {
           studentsQuery = query(
             collection(db, "students"),
-            where("schoolYear", "==", props.selectedAcademicYear)
+            where("schoolYear", "==", selectedYear.value)
           );
         }
 
@@ -235,33 +283,29 @@ export default {
           );
 
           if (courseIndex !== -1) {
-            // Check if this student has medications:
-            if (
-              studentMedicationMap[student.studentId] &&
-              studentMedicationMap[student.studentId].count > 0
-            ) {
-              courses.value[courseIndex].count++;
+            courses.value[courseIndex].count++;
 
-              // student details to the course
-              courses.value[courseIndex].students.push({
-                id: student.studentId,
-                name: `${student.firstName} ${student.lastName}`,
-                medicationCount: studentMedicationMap[student.studentId].count,
-                lastUpdated: formatDate(
-                  studentMedicationMap[student.studentId].lastUpdated
-                ),
-                profileImage: student.profileImage || null,
-              });
-            }
+            // Add student details to the course
+            courses.value[courseIndex].students.push({
+              id: student.studentId,
+              name: `${student.firstName} ${student.lastName}`,
+              year: student.schoolYear || "N/A",
+              admissionDate: formatDate(
+                student.admissionDate
+                  ? new Date(student.admissionDate)
+                  : new Date()
+              ),
+              profileImage: student.profileImage || null,
+            });
           }
         });
 
-        // Sort students by medication count (highest first)
+        // Sort students alphabetically
         courses.value.forEach((course) => {
-          course.students.sort((a, b) => b.medicationCount - a.medicationCount);
+          course.students.sort((a, b) => a.name.localeCompare(b.name));
         });
       } catch (error) {
-        console.error("Error fetching medication data:", error);
+        console.error("Error fetching student data:", error);
       }
     };
 
@@ -273,25 +317,35 @@ export default {
       });
     };
 
-    // Watch for changes in selectedAcademicYear
+    // Watch for changes in selectedYear
+    watch(selectedYear, (newYear) => {
+      fetchStudentData();
+    });
+
+    // Also watch for props change
     watch(
       () => props.selectedAcademicYear,
-      () => {
-        fetchMedicationData();
+      (newYear) => {
+        selectedYear.value = newYear;
       }
     );
 
     onMounted(() => {
-      fetchMedicationData();
+      fetchStudentData();
     });
 
     return {
       courses,
+      sortedCourses,
       openIndex,
-      isMainAccordionOpen,
-      toggleMainAccordion,
+      isAllOpen,
+      toggleAll,
       toggleCourse,
       getCourseIcon,
+      getCourseColor,
+      getCourseColorBg,
+      selectedYear,
+      academicYearOptions,
     };
   },
 };

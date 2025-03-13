@@ -1,12 +1,12 @@
 <template>
   <div
     v-if="modelValue"
-    class="fixed inset-0 bg-black/50 flex justify-center items-center z-50"
-    @click="handleBackgroundClick"
+    class="fixed inset-0 flex justify-center items-center z-50"
   >
+    <div class="fixed inset-0 bg-black/50" @click="handleBackgroundClick"></div>
     <div
       :class="[
-        'bg-white rounded-2xl p-8 shadow-lg h-[90vh]',
+        'relative bg-white rounded-2xl p-8 shadow-lg h-[90vh]',
         isEditing ? 'w-[800px]' : 'w-[650px]',
       ]"
       @click.stop
@@ -16,7 +16,7 @@
           {{ isEditing ? "Edit" : "New" }} Medical Record
         </h2>
         <button @click="closeModal" class="text-gray-500 hover:text-gray-700">
-          <XMarkIcon class="w-6 h-6" />
+          <X class="w-6 h-6" />
         </button>
       </div>
 
@@ -75,26 +75,62 @@
         <!-- Right side: Record Form -->
         <div class="flex-1 overflow-y-scroll no-scrollbar pr-4">
           <form @submit.prevent="submitForm" class="space-y-6">
-            <!-- Student Selection (only show when adding new record) -->
             <div v-if="!isEditing" class="space-y-4">
               <h3 class="font-satoshi-bold">Student Information</h3>
-              <div class="flex items-center">
-                <Dropdown
-                  v-model="formData.student"
-                  :options="studentOptions"
-                  placeholder="Select Student"
-                  class="flex-1"
-                />
-                <button
-                  type="button"
-                  @click="showStudentModal = true"
-                  class="bg-blue2 text-white p-2 rounded-full hover:bg-blue1 ml-2"
-                >
-                  <PlusIcon class="size-3" />
-                </button>
+
+              <StudentSearch
+                :students="students"
+                @select-student="selectSearchResult"
+              >
+                <template #dropdown>
+                  <Dropdown
+                    v-model="formData.student"
+                    :options="studentOptions"
+                    placeholder="Select Student"
+                    class="w-full"
+                    :searchable="true"
+                    :loading="studentsLoading"
+                  />
+                </template>
+
+                <template #add-button>
+                  <button
+                    type="button"
+                    @click="showStudentModal = true"
+                    class="bg-blue2 text-white p-2 rounded-full hover:bg-blue1 ml-2"
+                    title="Add New Student"
+                  >
+                    <Plus class="size-3" />
+                  </button>
+                </template>
+              </StudentSearch>
+
+              <!-- Show selected student details -->
+              <div v-if="formData.student" class="bg-blue1/10 p-4 rounded-lg">
+                <div class="flex items-center gap-4">
+                  <div
+                    class="w-12 h-12 rounded-full bg-blue1/20 overflow-hidden"
+                  >
+                    <img
+                      v-if="formData.student.profileImage"
+                      :src="formData.student.profileImage"
+                      class="w-full h-full object-cover"
+                      alt="Student Profile"
+                    />
+                  </div>
+                  <div>
+                    <p class="font-medium">
+                      {{ formData.student.firstName }}
+                      {{ formData.student.lastName }}
+                    </p>
+                    <p class="text-sm text-gray-600">
+                      {{ formData.student.course }} -
+                      {{ formData.student.yearLevel }}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
-
             <!-- Vital Signs -->
             <div class="space-y-4">
               <h3 class="font-satoshi-bold">Vital Signs</h3>
@@ -294,23 +330,25 @@
 
 <script>
 import { useRecordModal } from "@/composables/recordManagement";
-import { XMarkIcon, PlusIcon } from "@heroicons/vue/24/solid";
+import { X, Plus } from "lucide-vue-next";
 import MedicationsModal from "./MedicationsModal.vue";
 import StudentModal from "./StudentModal.vue";
 import StudentAccordion from "./StudentAccordion.vue";
 import Dropdown from "./Dropdown.vue";
+import StudentSearch from "./StudentSearch.vue";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase-config";
 
 export default {
   name: "RecordModal",
   components: {
-    XMarkIcon,
-    PlusIcon,
+    X,
+    Plus,
     MedicationsModal,
     StudentModal,
     StudentAccordion,
     Dropdown,
+    StudentSearch,
   },
   props: {
     modelValue: Boolean,
@@ -331,6 +369,10 @@ export default {
   emits: ["update:modelValue", "submit"],
   setup(props, context) {
     const recordModalSetup = useRecordModal(props, context);
+
+    const selectSearchResult = (student) => {
+      recordModalSetup.formData.value.student = student;
+    };
 
     // Modify the addMedication method to preserve form data
     const originalAddMedication = recordModalSetup.addMedication;
@@ -381,7 +423,10 @@ export default {
       }
     };
 
-    return recordModalSetup;
+    return {
+      ...recordModalSetup,
+      selectSearchResult,
+    };
   },
 };
 </script>

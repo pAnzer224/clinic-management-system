@@ -19,52 +19,57 @@
         </div>
 
         <div class="flex items-center text-sm text-gray-600 gap-2">
+          <!-- Student Information (always shown) -->
           <span
             :class="{ 'text-blue1 font-medium': currentStep === 1 }"
             @click="currentStep = 1"
             class="cursor-pointer hover:text-blue1/70 transition-colors"
             >Student Information</span
           >
+
+          <!-- First chevron (always shown) -->
           <ChevronRightIcon class="w-4 h-4" />
-          <span
-            v-if="isEditing"
-            :class="{ 'text-blue1 font-medium': currentStep === 2 }"
-            @click="currentStep = 2"
-            class="cursor-pointer hover:text-blue1/70 transition-colors"
-            >Documents</span
-          >
-          <ChevronRightIcon v-if="isEditing" class="w-4 h-4" />
-          <span
-            v-if="isEditing"
-            :class="{ 'text-blue1 font-medium': currentStep === 3 }"
-            @click="currentStep = 3"
-            class="cursor-pointer hover:text-blue1/70 transition-colors"
-            >Medical Records</span
-          >
-          <ChevronRightIcon v-if="!isEditing" class="w-4 h-4" />
-          <span
-            v-if="!isEditing"
-            :class="{ 'text-blue1 font-medium': currentStep === 2 }"
-            @click="currentStep = 2"
-            class="cursor-pointer hover:text-blue1/70 transition-colors"
-            >Health Information</span
-          >
-          <ChevronRightIcon v-if="!isEditing" class="w-4 h-4" />
-          <span
-            v-if="!isEditing"
-            :class="{ 'text-blue1 font-medium': currentStep === 3 }"
-            @click="currentStep = 3"
-            class="cursor-pointer hover:text-blue1/70 transition-colors"
-            >Physical Exam</span
-          >
-          <ChevronRightIcon v-if="!isEditing" class="w-4 h-4" />
-          <span
-            v-if="!isEditing"
-            :class="{ 'text-blue1 font-medium': currentStep === 4 }"
-            @click="currentStep = 4"
-            class="cursor-pointer hover:text-blue1/70 transition-colors"
-            >Required Documents</span
-          >
+
+          <!-- Edit mode path -->
+          <template v-if="isEditing">
+            <span
+              :class="{ 'text-blue1 font-medium': currentStep === 2 }"
+              @click="currentStep = 2"
+              class="cursor-pointer hover:text-blue1/70 transition-colors"
+              >Documents</span
+            >
+            <ChevronRightIcon class="w-4 h-4" />
+            <span
+              :class="{ 'text-blue1 font-medium': currentStep === 3 }"
+              @click="currentStep = 3"
+              class="cursor-pointer hover:text-blue1/70 transition-colors"
+              >Medical Records</span
+            >
+          </template>
+
+          <!-- New student path -->
+          <template v-else>
+            <span
+              :class="{ 'text-blue1 font-medium': currentStep === 2 }"
+              @click="currentStep = 2"
+              class="cursor-pointer hover:text-blue1/70 transition-colors"
+              >Health Information</span
+            >
+            <ChevronRightIcon class="w-4 h-4" />
+            <span
+              :class="{ 'text-blue1 font-medium': currentStep === 3 }"
+              @click="currentStep = 3"
+              class="cursor-pointer hover:text-blue1/70 transition-colors"
+              >Physical Exam</span
+            >
+            <ChevronRightIcon class="w-4 h-4" />
+            <span
+              :class="{ 'text-blue1 font-medium': currentStep === 4 }"
+              @click="currentStep = 4"
+              class="cursor-pointer hover:text-blue1/70 transition-colors"
+              >Required Documents</span
+            >
+          </template>
         </div>
       </div>
 

@@ -161,10 +161,13 @@
     <!-- User Modal -->
     <div
       v-if="showModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
-      @click.self="showModal = false"
+      class="fixed inset-0 flex justify-center items-center z-50"
     >
-      <div class="bg-white rounded-2xl p-4 sm:p-8 w-full max-w-md">
+      <div class="fixed inset-0 bg-black/50" @click="showModal = false"></div>
+      <div
+        class="relative bg-white rounded-2xl p-4 sm:p-8 w-full max-w-md"
+        @click.stop
+      >
         <h3 class="text-lg font-satoshi-medium mb-6">
           {{ editingUser ? `Edit ${currentRole}` : `Add New ${currentRole}` }}
         </h3>

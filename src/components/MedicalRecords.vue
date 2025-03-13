@@ -16,7 +16,6 @@
     </div>
 
     <div v-else>
-      <!-- Wrap the slider and records in a container with hidden overflow -->
       <div class="relative overflow-hidden">
         <div
           class="flex transition-transform duration-300 ease-in-out"

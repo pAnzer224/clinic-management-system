@@ -1,4 +1,4 @@
-import { ref, computed, watch, nextTick } from "vue";
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import {
   serverTimestamp,
@@ -23,7 +23,7 @@ export const courseOptions = [
   { value: "BSED", label: "BSED" },
   { value: "BSIT", label: "BSIT" },
   { value: "BSAB", label: "BSAB" },
-  { value: "HM", label: "HM" },
+  { value: "BSHM", label: "BSHM" },
 ];
 
 export const yearLevelOptions = [
@@ -93,6 +93,8 @@ export function useStudentModal(props, emit) {
   const selectedDocument = ref("");
   const formScrollContainer = ref(null);
   const activeAccordion = ref(null);
+  const allStudents = ref([]);
+  let studentsUnsubscribe = null;
 
   const formData = ref({
     profileImage: "",
@@ -183,6 +185,27 @@ export function useStudentModal(props, emit) {
         formScrollContainer.value.scrollTop = 0;
       }
     });
+  });
+
+  // Setup real-time student data listener
+  function setupStudentsListener() {
+    const q = query(collection(db, "students"), orderBy("lastName"));
+    studentsUnsubscribe = onSnapshot(q, (snapshot) => {
+      allStudents.value = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+    });
+  }
+
+  onMounted(() => {
+    setupStudentsListener();
+  });
+
+  onUnmounted(() => {
+    if (studentsUnsubscribe) {
+      studentsUnsubscribe();
+    }
   });
 
   const upcomingAppointments = computed(() => {
@@ -320,6 +343,7 @@ export function useStudentModal(props, emit) {
     upcomingAppointments,
     concludedAppointments,
     formScrollContainer,
+    allStudents,
     handleImageChange,
     handleDocumentChange,
     viewDocument,
@@ -339,16 +363,10 @@ export function useStudentModal(props, emit) {
 // Students List Functionality
 export function useStudentsList() {
   const route = useRoute();
-  const {
-    items: students,
-    loading,
-    error,
-    listenToChanges,
-    stopListening,
-    addItem,
-    updateItem,
-    deleteItem,
-  } = useCRUD("students");
+  const loading = ref(true);
+  const error = ref(null);
+  const students = ref([]);
+  let studentsUnsubscribe = null;
 
   const searchQuery = ref("");
   const filterYear = ref("");
@@ -365,6 +383,29 @@ export function useStudentsList() {
   const studentMedicalRecords = ref([]);
   let unsubscribeAppointments = null;
   let unsubscribeMedicalRecords = null;
+
+  // Use direct Firestore snapshot listener instead of CRUD helper for more control
+  function listenToStudentChanges() {
+    loading.value = true;
+    const studentsRef = collection(db, "students");
+    const q = query(studentsRef, orderBy("lastName"));
+
+    studentsUnsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        students.value = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        loading.value = false;
+      },
+      (err) => {
+        console.error("Error fetching students:", err);
+        error.value = err.message;
+        loading.value = false;
+      }
+    );
+  }
 
   function listenToAppointments() {
     const appointmentsQuery = query(
@@ -387,19 +428,38 @@ export function useStudentsList() {
     );
   }
 
+  function listenToStudentMedicalRecords(studentId) {
+    if (unsubscribeMedicalRecords) {
+      unsubscribeMedicalRecords();
+    }
+
+    if (!studentId) return;
+
+    const medicalsRef = collection(db, "medicalRecords");
+    const q = query(
+      medicalsRef,
+      where("studentId", "==", studentId),
+      orderBy("date", "desc")
+    );
+
+    unsubscribeMedicalRecords = onSnapshot(
+      q,
+      (snapshot) => {
+        studentMedicalRecords.value = snapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+      },
+      (error) => {
+        console.error("Error fetching medical records:", error);
+        studentMedicalRecords.value = [];
+      }
+    );
+  }
+
   async function fetchMedicalRecords(studentId) {
     try {
-      const medicalsRef = collection(db, "medicalRecords");
-      const q = query(
-        medicalsRef,
-        where("studentId", "==", studentId),
-        orderBy("date", "desc")
-      );
-      const snapshot = await getDocs(q);
-      studentMedicalRecords.value = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
+      listenToStudentMedicalRecords(studentId);
     } catch (error) {
       console.error("Error fetching medical records:", error);
       studentMedicalRecords.value = [];
@@ -456,7 +516,7 @@ export function useStudentsList() {
     if (route.query.openModal === "true") {
       add();
     }
-    listenToChanges();
+    listenToStudentChanges();
     listenToAppointments();
   }
 
@@ -480,7 +540,10 @@ export function useStudentsList() {
   async function deleteStudent(student) {
     if (confirm("Are you sure you want to delete this student?")) {
       try {
+        // Use CRUD helper for deletion
+        const { deleteItem } = useCRUD("students");
         await deleteItem(student.studentId);
+
         logActivity({
           type: "student",
           action: "delete",
@@ -505,6 +568,9 @@ export function useStudentsList() {
         id: data.studentId,
         updatedAt: serverTimestamp(),
       };
+
+      // Use CRUD helper for add/update operations
+      const { addItem, updateItem } = useCRUD("students");
 
       if (!isEditing.value) {
         submitData.createdAt = serverTimestamp();
@@ -541,7 +607,9 @@ export function useStudentsList() {
     if (unsubscribeMedicalRecords) {
       unsubscribeMedicalRecords();
     }
-    stopListening();
+    if (studentsUnsubscribe) {
+      studentsUnsubscribe();
+    }
   }
 
   return {

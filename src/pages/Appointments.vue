@@ -147,32 +147,48 @@
     <!-- Schedule/Edit Modal -->
     <div
       v-if="showScheduleModal"
-      class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
-      @click.self="showScheduleModal = false"
+      class="fixed inset-0 flex justify-center items-center z-50"
     >
-      <div class="bg-white rounded-2xl p-8 shadow-lg w-[500px]">
+      <div
+        class="fixed inset-0 bg-black/50"
+        @click="showScheduleModal = false"
+      ></div>
+      <div
+        class="relative bg-white rounded-2xl p-8 shadow-lg w-[500px]"
+        @click.stop
+      >
         <h2 class="text-xl font-satoshi-bold mb-6">
           {{ isEditing ? "Edit Appointment" : "Schedule Appointment" }}
         </h2>
         <form @submit.prevent="submitAppointment" class="space-y-4">
           <div>
             <label class="block mb-1">Student</label>
-            <div class="flex items-center gap-2">
-              <Dropdown
-                v-model="selectedStudent"
-                :options="studentOptions"
-                style="z-index: 9999"
-                placeholder="Select Student"
-                class="flex-1"
-              />
-              <button
-                type="button"
-                @click="showStudentModal = true"
-                class="bg-blue2 text-white p-2 rounded-full hover:bg-blue1"
-              >
-                <PlusIcon class="size-3" />
-              </button>
-            </div>
+            <StudentSearch
+              :students="students"
+              @select-student="selectSearchResult"
+            >
+              <template #dropdown>
+                <Dropdown
+                  v-model="selectedStudent"
+                  :options="studentOptions"
+                  placeholder="Select Student"
+                  class="w-full"
+                  style="z-index: 9999"
+                  :searchable="true"
+                />
+              </template>
+
+              <template #add-button>
+                <button
+                  type="button"
+                  @click="showStudentModal = true"
+                  class="bg-blue2 text-white p-2 rounded-full hover:bg-blue1 ml-2"
+                  title="Add New Student"
+                >
+                  <PlusIcon class="size-3" />
+                </button>
+              </template>
+            </StudentSearch>
           </div>
           <div>
             <label class="block mb-1">Date</label>
@@ -264,6 +280,7 @@ import {
 } from "@heroicons/vue/24/outline";
 import AppointmentCalendar from "@/components/AppointmentCalendar.vue";
 import StudentModal from "@/components/StudentModal.vue";
+import StudentSearch from "@/components/StudentSearch.vue";
 import Dropdown from "@/components/Dropdown.vue";
 import { logActivity } from "@/utils/activity-logger";
 
@@ -272,6 +289,7 @@ export default {
   components: {
     AppointmentCalendar,
     StudentModal,
+    StudentSearch,
     Dropdown,
     PlusIcon,
     PencilIcon,
@@ -385,6 +403,13 @@ export default {
       }
     };
 
+    // Handle student selection from StudentSearch
+    const selectSearchResult = (student) => {
+      selectedStudent.value = student;
+      appointmentForm.value.studentName = `${student.firstName} ${student.lastName}`;
+      appointmentForm.value.studentId = student.studentId;
+    };
+
     watch(selectedStudent, (student) => {
       if (student) {
         appointmentForm.value.studentName = `${student.firstName} ${student.lastName}`;
@@ -473,6 +498,40 @@ export default {
       showScheduleModal.value = true;
     };
 
+    async function handleStudentSubmit(data) {
+      try {
+        const studentData = {
+          ...data,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+
+        await setDoc(doc(db, "students", data.studentId), studentData);
+
+        // Update current form with new student data
+        selectedStudent.value = studentData;
+        appointmentForm.value.studentName = `${studentData.firstName} ${studentData.lastName}`;
+        appointmentForm.value.studentId = studentData.studentId;
+
+        await logActivity({
+          type: "student",
+          action: "create",
+          title: "New Student Added",
+          description: `Added new student ${data.firstName} ${data.lastName}`,
+          timestamp: serverTimestamp(),
+          performedBy: currentUser.value,
+        });
+
+        showStudentModal.value = false;
+        showNotification(
+          `Student ${data.firstName} ${data.lastName} has been added`
+        );
+      } catch (error) {
+        console.error("Error saving student:", error);
+        showNotification("Error saving student");
+      }
+    }
+
     async function submitAppointment() {
       try {
         const appointmentData = {
@@ -528,35 +587,6 @@ export default {
       } catch (error) {
         console.error("Error saving appointment:", error);
         showNotification("Error saving appointment");
-      }
-    }
-
-    async function handleStudentSubmit(data) {
-      try {
-        const studentData = {
-          ...data,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-
-        await setDoc(doc(db, "students", data.studentId), studentData);
-        showStudentModal.value = false;
-
-        await logActivity({
-          type: "student",
-          action: "create",
-          title: "New Student Added",
-          description: `Added new student ${data.firstName} ${data.lastName}`,
-          timestamp: serverTimestamp(),
-          performedBy: currentUser.value,
-        });
-
-        showNotification(
-          `Student ${data.firstName} ${data.lastName} has been added`
-        );
-      } catch (error) {
-        console.error("Error saving student:", error);
-        showNotification("Error saving student");
       }
     }
 
@@ -663,6 +693,7 @@ export default {
       handleTimeSelected,
       nextAppointment,
       prevAppointment,
+      selectSearchResult,
     };
   },
 };

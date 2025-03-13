@@ -110,3 +110,30 @@ const displayValue = computed(() => {
   return selectedOption ? selectedOption.label : props.placeholder;
 });
 </script>
+
+<script>
+export default {
+  props: {
+    modelValue: {
+      type: [String, Object],
+      default: "",
+    },
+    options: {
+      type: Array,
+      required: true,
+    },
+    placeholder: {
+      type: String,
+      default: "Select an option",
+    },
+    searchable: {
+      type: Boolean,
+      default: false,
+    },
+    loading: {
+      type: Boolean,
+      default: false,
+    },
+  },
+};
+</script>
