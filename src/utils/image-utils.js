@@ -1,11 +1,5 @@
 export const handleImageUpload = (file) => {
-  return new Promise((resolve, reject) => {
-    if (file.size > 5 * 1024 * 1024) {
-      // 5MB limit
-      reject(new Error("File is too large. Please select an image under 5MB."));
-      return;
-    }
-
+  return new Promise((resolve) => {
     const reader = new FileReader();
     reader.onload = (event) => {
       const img = new Image();
@@ -14,9 +8,9 @@ export const handleImageUpload = (file) => {
         let width = img.width;
         let height = img.height;
 
-        // Reduce maximum dimensions
-        const MAX_WIDTH = 400;
-        const MAX_HEIGHT = 400;
+        // Set maximum dimensions
+        const MAX_WIDTH = 800;
+        const MAX_HEIGHT = 800;
 
         if (width > height) {
           if (width > MAX_WIDTH) {
@@ -36,24 +30,11 @@ export const handleImageUpload = (file) => {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
 
-        // Start with lower quality
-        let quality = 0.4; // Reduced from 0.6
-        let result = canvas.toDataURL("image/jpeg", quality);
-
-        // Keep reducing quality until under 300KB
-        while (
-          Math.round((result.length * 3) / 4) > 300 * 1024 &&
-          quality > 0.1
-        ) {
-          quality -= 0.1;
-          result = canvas.toDataURL("image/jpeg", quality);
-        }
-
-        resolve(result);
+        // Compress to JPEG with quality 0.7
+        resolve(canvas.toDataURL("image/jpeg", 0.7));
       };
       img.src = event.target.result;
     };
-    reader.onerror = (error) => reject(error);
     reader.readAsDataURL(file);
   });
 };

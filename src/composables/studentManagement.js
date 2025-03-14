@@ -9,8 +9,10 @@ import {
   where,
   getDocs,
 } from "firebase/firestore";
-import { handleImageUpload } from "@/utils/image-utils";
-import { handleDocumentUpload } from "@/utils/document-upload-utils";
+import {
+  uploadImageToSupabase,
+  uploadDocumentToSupabase,
+} from "@/utils/supabase-storage";
 import { useCRUD } from "@/utils/firebaseCRUD";
 import { logActivity } from "@/utils/activity-logger";
 import { db } from "@/firebase-config";
@@ -130,6 +132,15 @@ export function useStudentModal(props, emit) {
       healthExam: "",
       physicalExam: "",
     },
+
+    medicalCertificateLoading: false,
+    urinalysisReportLoading: false,
+    radiologicReportLoading: false,
+    hematologyReportLoading: false,
+    drugTestReportLoading: false,
+    dentalHealthChartLoading: false,
+    healthExamLoading: false,
+    physicalExamLoading: false,
     healthExamData: {},
     physicalExamData: {},
   });
@@ -219,9 +230,9 @@ export function useStudentModal(props, emit) {
   async function handleImageChange(event) {
     const file = event.target.files[0];
     if (file) {
-      const base64 = await handleImageUpload(file);
-      imagePreview.value = base64;
-      formData.value.profileImage = base64;
+      const imageUrl = await uploadImageToSupabase(file);
+      imagePreview.value = imageUrl;
+      formData.value.profileImage = imageUrl;
     }
   }
 
@@ -229,8 +240,8 @@ export function useStudentModal(props, emit) {
     const file = event.target.files[0];
     if (file) {
       try {
-        const fileData = await handleDocumentUpload(file);
-        formData.value.documents[documentKey] = fileData.data;
+        const fileUrl = await uploadDocumentToSupabase(file, "image-uploads");
+        formData.value.documents[documentKey] = fileUrl;
       } catch (error) {
         alert(error.message);
         event.target.value = "";

@@ -1,4 +1,5 @@
 <template>
+  <!-- Template remains unchanged -->
   <main v-if="currentUser.role === 'admin'" class="flex-1 space-y-6">
     <h1 class="text-2xl font-satoshi-bold text-text px-4 sm:px-6 lg:px-0">
       User Management
@@ -181,6 +182,12 @@
                   class="w-full h-full object-cover"
                   alt="Profile Preview"
                 />
+                <div
+                  v-if="uploading"
+                  class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-full"
+                >
+                  <LoaderIcon class="animate-spin h-8 w-8 text-white" />
+                </div>
               </div>
               <input
                 type="file"
@@ -193,6 +200,7 @@
                 type="button"
                 @click="$refs.fileInput.click()"
                 class="absolute bottom-0 right-0 bg-blue1 text-white p-2 rounded-full"
+                :disabled="uploading"
               >
                 <PencilIcon class="h-4 w-4" />
               </button>
@@ -239,12 +247,14 @@
               type="button"
               @click="showModal = false"
               class="px-4 py-2 rounded-full border"
+              :disabled="uploading"
             >
               Cancel
             </button>
             <button
               type="submit"
               class="bg-blue1 text-white px-4 py-2 rounded-full"
+              :disabled="uploading"
             >
               {{ editingUser ? "Save Changes" : `Add ${currentRole}` }}
             </button>
@@ -269,11 +279,12 @@ import { db } from "@/firebase-config";
 import { useCRUD } from "@/utils/firebaseCRUD";
 import { serverTimestamp } from "firebase/firestore";
 import { PencilIcon } from "@heroicons/vue/24/solid";
-import { handleImageUpload } from "@/utils/image-utils";
+import { uploadImageToSupabase } from "@/utils/supabase-storage";
 import { IntersectingCirclesSpinner } from "epic-spinners";
 import { ref, computed, onMounted } from "vue";
 import Dropdown from "@/components/Dropdown.vue";
 import { logActivity } from "@/utils/activity-logger";
+import { Loader as LoaderIcon } from "lucide-vue-next";
 
 export default {
   name: "Security",
@@ -281,6 +292,7 @@ export default {
     PencilIcon,
     IntersectingCirclesSpinner,
     Dropdown,
+    LoaderIcon,
   },
   setup() {
     const adminCRUD = useCRUD("admins");
@@ -304,12 +316,14 @@ export default {
         password: "",
         profileImage: "",
       },
+      imageFile: null, // Store the actual file object
       imagePreview: null,
       currentUser: {},
       loadingAdmins: true,
       loadingStaff: true,
       showToast: false,
       toastMessage: "",
+      uploading: false, // Flag to track upload state
     };
   },
   computed: {
@@ -340,6 +354,35 @@ export default {
     },
   },
   methods: {
+    async handleImageChange(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      this.uploading = true;
+      try {
+        // Display preview immediately
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          this.imagePreview = e.target.result;
+        };
+        reader.readAsDataURL(file);
+
+        // Store the file for later upload
+        this.imageFile = file;
+
+        // Use a short timeout to ensure UI updates before heavy processing
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        // Upload to Supabase and get the URL
+        const imageUrl = await uploadImageToSupabase(file);
+        this.userForm.profileImage = imageUrl;
+      } catch (error) {
+        console.error("Error handling image:", error);
+        this.showNotification("Failed to upload image");
+      } finally {
+        this.uploading = false;
+      }
+    },
     showNotification(message) {
       this.toastMessage = message;
       this.showToast = true;
@@ -404,38 +447,33 @@ export default {
         };
         this.imagePreview = null;
       }
+      this.imageFile = null; // Reset the image file
       this.showModal = true;
     },
-    async handleImageChange(event) {
-      const file = event.target.files[0];
-      if (file) {
-        const base64 = await handleImageUpload(file);
-        this.imagePreview = base64;
-        this.userForm.profileImage = base64;
-      }
-    },
+
     async saveUser() {
+      this.uploading = true;
       const isAdmin = this.currentRole === "admin";
       const idField = isAdmin ? "adminId" : "staffId";
 
-      const userData = {
-        id: this.userForm.id,
-        [idField]: this.userForm.id,
-        email: this.userForm.email,
-        profileImage: this.userForm.profileImage,
-        updatedAt: serverTimestamp(),
-      };
-
-      if (!this.editingUser || this.userForm.password) {
-        userData.password = this.userForm.password;
-      }
-
-      if (!this.editingUser) {
-        userData.createdAt = serverTimestamp();
-        userData.lastLogin = null;
-      }
-
       try {
+        const userData = {
+          id: this.userForm.id,
+          [idField]: this.userForm.id,
+          email: this.userForm.email,
+          profileImage: this.userForm.profileImage,
+          updatedAt: serverTimestamp(),
+        };
+
+        if (!this.editingUser || this.userForm.password) {
+          userData.password = this.userForm.password;
+        }
+
+        if (!this.editingUser) {
+          userData.createdAt = serverTimestamp();
+          userData.lastLogin = null;
+        }
+
         if (isAdmin) {
           if (this.editingUser) {
             await this.adminCRUD.updateItem(userData);
@@ -505,6 +543,8 @@ export default {
             isAdmin ? "admin" : "staff"
           }`
         );
+      } finally {
+        this.uploading = false;
       }
     },
     async confirmDelete(role, userId) {

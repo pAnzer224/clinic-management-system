@@ -19,18 +19,13 @@
         </div>
 
         <div class="flex items-center text-sm text-gray-600 gap-2">
-          <!-- Student Information (always shown) -->
           <span
             :class="{ 'text-blue1 font-medium': currentStep === 1 }"
             @click="currentStep = 1"
             class="cursor-pointer hover:text-blue1/70 transition-colors"
             >Student Information</span
           >
-
-          <!-- First chevron (always shown) -->
           <ChevronRightIcon class="w-4 h-4" />
-
-          <!-- Edit mode path -->
           <template v-if="isEditing">
             <span
               :class="{ 'text-blue1 font-medium': currentStep === 2 }"
@@ -46,8 +41,6 @@
               >Medical Records</span
             >
           </template>
-
-          <!-- New student path -->
           <template v-else>
             <span
               :class="{ 'text-blue1 font-medium': currentStep === 2 }"
@@ -91,6 +84,12 @@
                       class="w-full h-full object-cover"
                       alt="Profile Preview"
                     />
+                    <div
+                      v-if="uploading"
+                      class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-full"
+                    >
+                      <LoaderIcon class="animate-spin h-8 w-8 text-white" />
+                    </div>
                   </div>
                   <input
                     type="file"
@@ -103,6 +102,7 @@
                     type="button"
                     @click="$refs.fileInput.click()"
                     class="absolute bottom-0 right-0 bg-blue1 text-white p-2 rounded-full"
+                    :disabled="uploading"
                   >
                     <PencilIcon class="h-4 w-4" />
                   </button>
@@ -120,6 +120,12 @@
                       class="w-full h-full object-cover"
                       alt="Profile Preview"
                     />
+                    <div
+                      v-if="uploading"
+                      class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-full"
+                    >
+                      <LoaderIcon class="animate-spin h-8 w-8 text-white" />
+                    </div>
                   </div>
                   <input
                     type="file"
@@ -137,7 +143,7 @@
                         ? 'bg-blue1 text-white'
                         : 'bg-gray-300 text-gray-500',
                     ]"
-                    :disabled="!isEditMode"
+                    :disabled="!isEditMode || uploading"
                   >
                     <PencilIcon class="h-4 w-4" />
                   </button>
@@ -316,7 +322,6 @@
               </div>
             </div>
 
-            <!-- Medical Records section -->
             <div v-if="currentStep === 3 && isEditing" class="pb-20">
               <MedicalRecords :records="medicalRecords" />
             </div>
@@ -364,13 +369,19 @@
                             ? null
                             : $refs[key][0].click()
                         "
-                        class="px-4 py-2 bg-blue1/10 text-blue1 rounded-lg flex-grow text-left text-sm transition-opacity"
+                        class="px-4 py-2 bg-blue1/10 text-blue1 rounded-lg flex-grow text-left text-sm transition-opacity flex items-center"
                         :class="{
                           'opacity-70 cursor-not-allowed':
                             isEditing && !isEditMode,
                         }"
-                        :disabled="isEditing && !isEditMode"
+                        :disabled="
+                          (isEditing && !isEditMode) ||
+                          formData[`${key}Loading`]
+                        "
                       >
+                        <span v-if="formData[`${key}Loading`]" class="mr-2">
+                          <LoaderIcon class="animate-spin h-4 w-4" />
+                        </span>
                         {{
                           formData.documents[key]
                             ? "Change Document"
@@ -455,6 +466,7 @@ import {
   ChevronDown as ChevronDownIcon,
   ChevronRight as ChevronRightIcon,
   Inbox as InboxIcon,
+  Loader as LoaderIcon,
 } from "lucide-vue-next";
 import HealthExamForm from "./HealthExamForm.vue";
 import PhysicalExamForm from "./PhysicalExamForm.vue";
@@ -470,6 +482,10 @@ import {
   acceptedDocumentTypes,
 } from "@/composables/studentManagement";
 import MedicalRecords from "./MedicalRecords.vue";
+import {
+  uploadImageToSupabase,
+  uploadDocumentToSupabase,
+} from "@/utils/supabase-storage";
 import { ref, onMounted, watch, computed } from "vue";
 
 export default {
@@ -481,6 +497,7 @@ export default {
     ChevronDownIcon,
     ChevronRightIcon,
     InboxIcon,
+    LoaderIcon,
     HealthExamForm,
     PhysicalExamForm,
     Dropdown,
@@ -510,27 +527,54 @@ export default {
     const formScrollContainer = ref(null);
     const imagePreview = ref(null);
     const documentFiles = ref({});
+    const uploading = ref(false);
 
-    // Lazy loading of component data
     const lazyLoadData = () => {
-      // Only load medical records when we're on the medical records step
       if (modalFunctions.currentStep.value === 3 && props.isEditing) {
-        // You can add a small timeout to ensure the modal appears before loading the data
         setTimeout(() => {}, 50);
       }
     };
 
-    // Add this function to optimize document handling
-    const optimizedHandleDocumentChange = (e, key) => {
+    const handleImageChange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
 
-      // Use createObjectURL instead of FileReader when possible
-      // This is faster for UI display purposes
-      modalFunctions.formData.value.documents[key] = URL.createObjectURL(file);
+      uploading.value = true;
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          imagePreview.value = e.target.result;
+        };
+        reader.readAsDataURL(file);
 
-      // Only store the actual file if needed for upload
-      documentFiles.value[key] = file;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+
+        const imageUrl = await uploadImageToSupabase(file);
+        modalFunctions.formData.value.profileImage = imageUrl;
+      } catch (error) {
+        console.error("Error uploading image:", error);
+      } finally {
+        uploading.value = false;
+      }
+    };
+
+    const handleDocumentChange = async (e, key) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const loadingKey = `${key}Loading`;
+        modalFunctions.formData.value[loadingKey] = true;
+        const fileUrl = await uploadDocumentToSupabase(file);
+        modalFunctions.formData.value.documents[key] = fileUrl;
+        modalFunctions.formData.value[`${key}FileName`] = file.name;
+      } catch (error) {
+        console.error("Error uploading document:", error);
+        alert("Failed to upload document. Please try again.");
+      } finally {
+        const loadingKey = `${key}Loading`;
+        modalFunctions.formData.value[loadingKey] = false;
+        e.target.value = "";
+      }
     };
 
     const toggleEditMode = () => {
@@ -541,15 +585,12 @@ export default {
       return props.medicalRecords || [];
     });
 
-    // Watch for step changes to lazy load data
     watch(modalFunctions.currentStep, (newStep) => {
       lazyLoadData();
     });
 
     onMounted(() => {
-      // Delay heavy operations
       setTimeout(() => {
-        // Initialize data for the current step only
         lazyLoadData();
       }, 50);
     });
@@ -567,8 +608,10 @@ export default {
       medicalRecords,
       formScrollContainer,
       imagePreview,
-      handleDocumentChange: optimizedHandleDocumentChange,
+      handleImageChange,
+      handleDocumentChange,
       documentFiles,
+      uploading,
     };
   },
 };
