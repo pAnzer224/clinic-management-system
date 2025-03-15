@@ -392,23 +392,72 @@ export default {
     },
     formatLastLogin(timestamp) {
       if (!timestamp) return "Never";
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      return new Intl.DateTimeFormat("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }).format(date);
+
+      try {
+        // Handle different timestamp formats
+        let date;
+
+        if (timestamp.toDate) {
+          // Firebase Timestamp
+          date = timestamp.toDate();
+        } else if (timestamp.seconds) {
+          // Firebase Timestamp format in JSON
+          date = new Date(timestamp.seconds * 1000);
+        } else if (typeof timestamp === "string") {
+          // ISO string
+          date = new Date(timestamp);
+        } else if (timestamp instanceof Date) {
+          // JS Date object
+          date = timestamp;
+        } else if (typeof timestamp === "object") {
+          // Handle potential JSON date object from localStorage
+          date = new Date(timestamp);
+        } else {
+          // Fallback for number or other formats
+          date = new Date(timestamp);
+        }
+
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+          console.warn("Invalid timestamp format:", timestamp);
+          return "Invalid date";
+        }
+
+        return new Intl.DateTimeFormat("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        }).format(date);
+      } catch (error) {
+        console.error("Error formatting timestamp:", error, timestamp);
+        return "Error";
+      }
     },
     formatTimestamp(timestamp) {
       if (!timestamp) return "Unknown";
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      return new Intl.DateTimeFormat("en-US", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }).format(date);
+
+      try {
+        let date;
+
+        if (timestamp.toDate) {
+          date = timestamp.toDate();
+        } else if (timestamp.seconds) {
+          date = new Date(timestamp.seconds * 1000);
+        } else {
+          date = new Date(timestamp);
+        }
+
+        return new Intl.DateTimeFormat("en-US", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        }).format(date);
+      } catch (error) {
+        console.error("Error formatting timestamp:", error);
+        return "Unknown";
+      }
     },
     async fetchAdmins() {
       this.loadingAdmins = true;
@@ -472,6 +521,9 @@ export default {
         if (!this.editingUser) {
           userData.createdAt = serverTimestamp();
           userData.lastLogin = null;
+        } else if (this.editingUser.lastLogin) {
+          // Preserve the lastLogin timestamp when updating a user
+          userData.lastLogin = this.editingUser.lastLogin;
         }
 
         if (isAdmin) {

@@ -134,7 +134,7 @@
             <!-- Vital Signs -->
             <div class="space-y-4">
               <h3 class="font-satoshi-bold">Vital Signs</h3>
-              <div class="grid grid-cols-2 gap-4">
+              <div class="grid grid-cols-2 gap-2">
                 <input
                   v-model="formData.temperature"
                   placeholder="Temperature (°C)"
@@ -165,7 +165,7 @@
                 <div class="flex gap-2">
                   <input
                     v-model="newSymptom"
-                    @keyup.enter="addSymptom"
+                    @keyup.enter.prevent="addSymptom"
                     placeholder="Symptoms"
                     class="flex-1 px-4 py-2 rounded-lg bg-graytint"
                   />
@@ -207,14 +207,14 @@
                 <h4 class="font-medium text-gray-700">Medications</h4>
                 <div class="flex gap-2">
                   <Dropdown
-                    v-model="newMedication.medicationId"
+                    v-model="medicationForm.medicationId"
                     :options="medicationOptions"
                     placeholder="Select Medicine"
                     class="flex-1"
                     @update:modelValue="handleMedicationSelect"
                   />
                   <input
-                    v-model="newMedication.dosage"
+                    v-model="medicationForm.dosage"
                     placeholder="Dosage"
                     class="w-32 px-4 py-2 rounded-lg bg-graytint"
                   />
@@ -223,7 +223,7 @@
                     @click="addMedication"
                     class="px-4 py-2 bg-blue1 text-white rounded-full"
                     :disabled="
-                      !newMedication.medicationId || !newMedication.dosage
+                      !medicationForm.medicationId || !medicationForm.dosage
                     "
                   >
                     Add
@@ -338,6 +338,7 @@ import Dropdown from "./Dropdown.vue";
 import StudentSearch from "./StudentSearch.vue";
 import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase-config";
+import { reactive, ref } from "vue";
 
 export default {
   name: "RecordModal",
@@ -370,29 +371,57 @@ export default {
   setup(props, context) {
     const recordModalSetup = useRecordModal(props, context);
 
+    const medicationForm = reactive({
+      medicationId: "",
+      name: "",
+      strength: "",
+      dosage: "",
+      quantity: 1,
+    });
+
     const selectSearchResult = (student) => {
       recordModalSetup.formData.value.student = student;
     };
 
-    // Modify the addMedication method to preserve form data
-    const originalAddMedication = recordModalSetup.addMedication;
-    recordModalSetup.addMedication = () => {
-      if (
-        recordModalSetup.newMedication.value.medicationId &&
-        recordModalSetup.newMedication.value.dosage
-      ) {
-        originalAddMedication();
+    const addMedication = () => {
+      if (medicationForm.medicationId && medicationForm.dosage) {
+        recordModalSetup.formData.value.medications = [
+          ...(recordModalSetup.formData.value.medications || []),
+          {
+            medicationId: medicationForm.medicationId,
+            name: medicationForm.name,
+            strength: medicationForm.strength,
+            dosage: medicationForm.dosage,
+            quantity: medicationForm.quantity || 1,
+          },
+        ];
+
+        // Only clear the medication form fields
+        medicationForm.medicationId = "";
+        medicationForm.name = "";
+        medicationForm.strength = "";
+        medicationForm.dosage = "";
+        medicationForm.quantity = 1;
       }
     };
 
-    const originalSubmitForm = recordModalSetup.submitForm;
+    // Modified medication selection handler
+    const handleMedicationSelect = (medicationId) => {
+      const selectedMedication = recordModalSetup.medications.value.find(
+        (med) => med.id === medicationId
+      );
 
-    recordModalSetup.submitForm = async () => {
+      if (selectedMedication) {
+        medicationForm.medicationId = medicationId;
+        medicationForm.name = selectedMedication.name;
+        medicationForm.strength = selectedMedication.strength;
+      }
+    };
+
+    const submitForm = async () => {
       try {
-        // Remove medication validation
         recordModalSetup.noMedicationWarning.value = false;
 
-        // Deduct medication stock
         if (recordModalSetup.formData.value.medications) {
           for (const med of recordModalSetup.formData.value.medications) {
             const medicationRef = doc(db, "medications", med.medicationId);
@@ -416,16 +445,20 @@ export default {
           }
         }
 
-        // Call original submit function
-        await originalSubmitForm();
+        context.emit("submit", recordModalSetup.formData.value);
+
+        context.emit("update:modelValue", false);
       } catch (error) {
         console.error("Error in form submission:", error);
       }
     };
-
     return {
       ...recordModalSetup,
+      medicationForm,
       selectSearchResult,
+      addMedication,
+      handleMedicationSelect,
+      submitForm,
     };
   },
 };

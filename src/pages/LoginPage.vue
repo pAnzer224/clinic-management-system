@@ -187,7 +187,15 @@
 import { ref } from "vue";
 import { useRouter } from "vue-router";
 import { db } from "@/firebase-config";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  query,
+  where,
+  doc,
+  updateDoc,
+  serverTimestamp,
+} from "firebase/firestore";
 
 //Hardcoded credentials for testing
 const emergencyCredentials = {
@@ -270,12 +278,17 @@ export default {
         password.value === emergencyCredentials.password
       ) {
         resetFailedAttempts();
+
+        // For emergency login, use client-side timestamp for consistency
+        const currentTime = new Date();
+
         localStorage.setItem(
           "currentUser",
           JSON.stringify({
             email: emergencyCredentials.email,
             role: "admin",
-            lastLogin: new Date(),
+            lastLogin: currentTime,
+            adminId: "ADMIN1", // Adding ID for consistency
           })
         );
         router.push("/overview");
@@ -290,19 +303,40 @@ export default {
         const q = query(userCollection, where("email", "==", email.value));
         const snapshot = await getDocs(q);
 
-        const user = snapshot.docs[0]?.data();
+        if (!snapshot.empty) {
+          const userDoc = snapshot.docs[0];
+          const user = userDoc.data();
+          const userId = userDoc.id;
+          const idField =
+            selectedRole.value === "admin" ? "adminId" : "staffId";
 
-        if (user && user.password === password.value) {
-          resetFailedAttempts();
-          localStorage.setItem(
-            "currentUser",
-            JSON.stringify({
-              ...user,
-              role: selectedRole.value,
-              lastLogin: new Date(),
-            })
-          );
-          router.push("/overview");
+          if (user && user.password === password.value) {
+            resetFailedAttempts();
+
+            // Current timestamp that will be consistent between Firestore and localStorage
+            const currentTime = new Date();
+
+            // Update lastLogin in Firestore with both server timestamp and date object
+            const userRef = doc(db, collectionName, userId);
+            await updateDoc(userRef, {
+              lastLogin: currentTime,
+            });
+
+            // Store the same timestamp format in localStorage
+            localStorage.setItem(
+              "currentUser",
+              JSON.stringify({
+                ...user,
+                role: selectedRole.value,
+                lastLogin: currentTime,
+                [idField]: user[idField], // Ensure ID field is included
+              })
+            );
+            router.push("/overview");
+          } else {
+            recordFailedAttempt();
+            error.value = "Invalid credentials. Please try again.";
+          }
         } else {
           recordFailedAttempt();
           error.value = "Invalid credentials. Please try again.";
