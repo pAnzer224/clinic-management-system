@@ -34,6 +34,15 @@
         </div>
 
         <router-link
+          to="/analytics"
+          class="hidden sm:block"
+          :class="{
+            'text-blue1 font-satoshi-medium': $route.path === '/medications',
+            'text-gray-600 hover:text-gray-900': $route.path !== '/medications',
+          }"
+          >Analytics</router-link
+        >
+        <router-link
           to="/medications"
           class="hidden sm:block"
           :class="{

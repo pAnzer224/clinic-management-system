@@ -1,74 +1,61 @@
 <template>
   <main class="flex-1 space-y-6">
-    <h1 class="text-2xl font-satoshi-bold text-text">Dashboard Overview</h1>
-
-    <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="flex justify-between items-center">
+      <h1 class="text-2xl font-satoshi-bold text-text">Dashboard Overview</h1>
       <router-link
-        v-for="stat in stats"
-        :key="stat.title"
-        :to="stat.route"
-        class="bg-gradient-to-tr from-blue1/40 to-blue3/30 p-6 rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer"
+        to="/analytics"
+        class="group relative inline-flex items-center justify-center overflow-hidden rounded-md bg-blue1 px-4 py-2 font-medium text-white transition hover:scale-110 top-[0.1px] right-[7.2px]"
       >
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-text font-medium text-[15px]">{{ stat.title }}</p>
-            <p class="text-2xl font-satoshi-bold mt-2 text-blue1">
-              {{ stat.value }}
-            </p>
-          </div>
-          <component
-            :is="stat.icon"
-            class="size-10 text-blue1 bg-blue1/10 rounded-full p-2 mt-8"
-          />
-        </div>
-        <p
-          class="text-sm mt-4 font-medium tracking-wide"
-          :class="stat.trend >= 0 ? 'text-green-600' : 'text-red-600'"
+        <span
+          class="flex items-center text-[12px] tracking-wide font-satoshi-regular"
         >
-          {{ stat.trend >= 0 ? "+" : "" }}{{ stat.trend.toFixed(1) }}% from last
-          month
-        </p>
+          View Analytics
+          <ArrowRightIcon class="size-3 ml-1" />
+        </span>
+        <div
+          class="absolute inset-0 flex h-full w-full justify-center [transform:skew(-12deg)_translateX(-100%)] group-hover:duration-1000 group-hover:[transform:skew(-12deg)_translateX(100%)]"
+        >
+          <div class="relative h-full w-8 bg-white/20"></div>
+        </div>
       </router-link>
     </div>
 
-    <!-- Students by Course (Former Accordion) -->
-    <CourseAccordion :selectedAcademicYear="selectedAcademicYear" />
+    <!-- Quick Action Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <router-link
+        v-for="action in quickActions"
+        :key="action.title"
+        :to="action.route"
+        class="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer border border-gray-100 overflow-hidden relative group"
+      >
+        <!-- Background gradient with animation -->
+        <div
+          class="absolute inset-0 bg-gradient-to-tr from-blue1/5 to-blue3/10 opacity-50 group-hover:opacity-100 group-hover:bg-gradient-to-tr group-hover:from-blue1/40 group-hover:to-blue3/30 transition-opacity duration-300"
+        ></div>
 
-    <!-- Charts Row -->
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
-      <!-- Students Requiring Medication by Course -->
-      <div class="bg-white p-6 rounded-2xl shadow-sm">
-        <div class="flex items-center justify-between mb-4">
-          <h2 class="text-lg font-satoshi-medium">
-            Students Requiring Medication by Course
-          </h2>
-          <Dropdown
-            v-model="selectedAcademicYear"
-            :options="academicYearOptions"
-            class="w-32 text-sm"
-          />
+        <!-- Card content -->
+        <div class="relative z-10 p-6">
+          <div class="flex flex-col items-start">
+            <div class="mb-4 bg-blue1/10 p-3 rounded-full">
+              <component :is="action.icon" class="h-6 w-6 text-blue1" />
+            </div>
+            <h3 class="text-lg font-satoshi-bold text-text mb-1">
+              {{ action.title }}
+            </h3>
+            <p class="text-sm text-gray-600 mb-4">{{ action.description }}</p>
+            <div
+              class="text-blue1 text-sm font-medium flex items-center mt-auto"
+            >
+              View
+              <ArrowRightIcon class="h-4 w-4 ml-1" />
+            </div>
+          </div>
         </div>
-
-        <apexchart
-          type="pie"
-          height="350"
-          :options="medicationChartOptions"
-          :series="medicationChartSeries"
-        />
-      </div>
-
-      <!-- weekly Appointments -->
-      <div class="bg-white p-6 rounded-2xl shadow-sm">
-        <h2 class="text-lg font-satoshi-medium mb-4">Weekly Appointments</h2>
-        <apexchart
-          type="area"
-          height="350"
-          :options="appointmentChartOptions"
-          :series="appointmentChartSeries"
-        />
-      </div>
+      </router-link>
     </div>
+
+    <!-- Course Information -->
+    <CourseAccordion :selectedAcademicYear="selectedAcademicYear" />
 
     <!-- Recent Activity -->
     <div class="bg-white p-6 rounded-2xl shadow-sm">
@@ -130,188 +117,81 @@
 </template>
 
 <script>
-import { ref, onMounted, computed, watch } from "vue";
+import { ref, onMounted, computed } from "vue";
 import {
   collection,
   onSnapshot,
   query,
   orderBy,
   limit,
-  where,
   Timestamp,
   deleteDoc,
   doc,
-  getDocs,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
-import VueApexCharts from "vue3-apexcharts";
 import {
   UsersIcon,
   CalendarIcon,
-  PillIcon,
-  ClipboardIcon,
-  UserPlusIcon,
-  PencilIcon,
-  Trash2,
-  TrashIcon,
   FileTextIcon,
   ActivityIcon,
+  TrashIcon,
+  Trash2,
+  UserPlusIcon,
+  PencilIcon,
+  PillIcon,
+  ClipboardIcon,
+  ArrowRightIcon,
 } from "lucide-vue-next";
-import Dropdown from "@/components/Dropdown.vue";
 import CourseAccordion from "@/components/CourseAccordion.vue";
 
 export default {
   name: "Overview",
   components: {
-    apexchart: VueApexCharts,
     UsersIcon,
     CalendarIcon,
-    PillIcon,
-    ClipboardIcon,
-    UserPlusIcon,
     FileTextIcon,
     ActivityIcon,
     TrashIcon,
     Trash2,
-    Dropdown,
+    UserPlusIcon,
+    PencilIcon,
+    PillIcon,
+    ClipboardIcon,
+    ArrowRightIcon,
     CourseAccordion,
   },
   setup() {
     const currentUser = ref(
       JSON.parse(localStorage.getItem("currentUser")) || {}
     );
-    const stats = ref([
+    const selectedAcademicYear = ref("All");
+
+    //  quick action cards
+    const quickActions = ref([
       {
-        title: "Total Students",
-        value: 0,
-        trend: 0,
+        title: "Student Management",
+        description:
+          "Add, view, update, and manage student profiles and information",
         icon: UsersIcon,
-        collection: "students",
-        filter: null,
         route: "/students",
       },
       {
-        title: "Today's Appointments",
-        value: 0,
-        trend: 0,
+        title: "Appointments",
+        description: "Schedule and manage student healthcare appointments",
         icon: CalendarIcon,
-        collection: "appointments",
-        filter: (doc) => {
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const appointmentDate = new Date(doc.data().date);
-          return appointmentDate.toDateString() === today.toDateString();
-        },
         route: "/appointments",
       },
       {
-        title: "Available Medications",
-        value: 0,
-        trend: 0,
+        title: "Medication Inventory",
+        description: "Monitor and manage medication stock and prescriptions",
         icon: PillIcon,
-        collection: "medications",
-        filter: (doc) => doc.data().status === "In Stock",
         route: "/medications",
       },
       {
         title: "Medical Records",
-        value: 0,
-        trend: 0,
+        description: "Access and update student health history and documents",
         icon: ClipboardIcon,
-        collection: "medicalRecords",
-        filter: null,
         route: "/records",
-      },
-    ]);
-
-    const selectedAcademicYear = ref("All");
-    const academicYearOptions = computed(() => {
-      const years = JSON.parse(localStorage.getItem("academicYears") || "[]");
-      return [
-        { value: "All", label: "All Years" },
-        ...years.map((year) => ({ value: year, label: year })),
-      ];
-    });
-
-    // Medication Pie Chart Options
-    const medicationChartOptions = {
-      chart: {
-        type: "pie",
-      },
-      labels: ["BSIT", "BSHM", "BSCRIM", "BSAB", "BSED", "BEED"],
-      colors: [
-        "#D551D0", // Violet for BSIT
-        "#D5D051", // Yellow for BSHM
-        "#800000", // A72335 for BSCRIM
-        "#51D566", // Green for BSAB
-        "#517ED5", // Blue for BSED
-        "#51AED5", // Light blue for BEED
-      ],
-      legend: {
-        position: "right",
-      },
-      tooltip: {
-        y: {
-          formatter: function (value) {
-            return value + " students";
-          },
-        },
-      },
-      dataLabels: {
-        formatter: function (val, opts) {
-          return (
-            opts.w.globals.series[opts.seriesIndex] +
-            " (" +
-            val.toFixed(0) +
-            "%)"
-          );
-        },
-      },
-    };
-
-    const medicationChartSeries = ref([0, 0, 0, 0, 0, 0]);
-
-    const appointmentChartOptions = {
-      chart: {
-        type: "area",
-        toolbar: {
-          show: false,
-        },
-        stacked: false,
-      },
-      dataLabels: {
-        enabled: false,
-      },
-      stroke: {
-        curve: "smooth",
-        width: [2, 2, 2],
-      },
-      colors: ["#3B82F6", "#EF4444", "#10B981"],
-      xaxis: {
-        categories: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-      },
-      tooltip: {
-        x: {
-          format: "dd",
-        },
-      },
-      legend: {
-        position: "top",
-      },
-    };
-
-    const appointmentChartSeries = ref([
-      {
-        name: "Regular Consultations",
-        data: [12, 15, 14, 16, 13, 8, 5],
-      },
-      {
-        name: "Emergency Cases",
-        data: [2, 1, 2, 1, 2, 3, 2],
-      },
-      {
-        name: "Follow-up Visits",
-        data: [6, 8, 7, 9, 6, 2, 1],
       },
     ]);
 
@@ -321,192 +201,6 @@ export default {
         return b.timestamp - a.timestamp;
       });
     });
-
-    // Watch for changes in selectedAcademicYear and update charts
-    watch(selectedAcademicYear, (newYear) => {
-      fetchMedicationData(newYear);
-    });
-
-    const fetchMedicationData = async (academicYear) => {
-      try {
-        // Initialize counts for each course
-        const courseMap = {
-          BSIT: 0,
-          BSHM: 0,
-          BSCRIM: 0,
-          BSAB: 0,
-          BSED: 0,
-          BEED: 0,
-        };
-
-        // Get all students requiring medication based on medical records
-        const recordsRef = collection(db, "medicalRecords");
-        const recordsSnapshot = await getDocs(recordsRef);
-
-        // Create a set of student IDs requiring medication
-        const studentsWithMedication = new Set();
-
-        recordsSnapshot.forEach((doc) => {
-          const record = doc.data();
-          if (record.medications && record.medications.length > 0) {
-            studentsWithMedication.add(record.studentId);
-          }
-        });
-
-        // Query students collection based on academic year
-        let studentsQuery;
-        if (academicYear === "All") {
-          studentsQuery = collection(db, "students");
-        } else {
-          studentsQuery = query(
-            collection(db, "students"),
-            where("schoolYear", "==", academicYear)
-          );
-        }
-
-        const studentsSnapshot = await getDocs(studentsQuery);
-
-        // Count students with medications by course
-        studentsSnapshot.forEach((doc) => {
-          const student = doc.data();
-          if (studentsWithMedication.has(student.studentId)) {
-            // Normalize course name to handle case inconsistencies
-            const courseName = student.course.toUpperCase();
-            if (courseMap.hasOwnProperty(courseName)) {
-              courseMap[courseName]++;
-            }
-          }
-        });
-
-        // Update chart series with the count data
-        medicationChartSeries.value = [
-          courseMap.BSIT,
-          courseMap.BSHM,
-          courseMap.BSCRIM,
-          courseMap.BSAB,
-          courseMap.BSED,
-          courseMap.BEED,
-        ];
-      } catch (error) {
-        console.error("Error fetching medication data:", error);
-      }
-    };
-
-    const getMonthlyStats = async (collectionName, filter = null) => {
-      const currentDate = new Date();
-      const currentMonth = currentDate.getMonth();
-      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-      const yearOfLastMonth =
-        currentMonth === 0
-          ? currentDate.getFullYear() - 1
-          : currentDate.getFullYear();
-
-      // Get the first day of current month and last month
-      const firstDayCurrentMonth = new Date(
-        currentDate.getFullYear(),
-        currentMonth,
-        1
-      );
-      const firstDayLastMonth = new Date(yearOfLastMonth, lastMonth, 1);
-
-      // Get the last day of last month
-      const lastDayLastMonth = new Date(yearOfLastMonth, currentMonth, 0);
-
-      // Create timestamps for Firestore queries
-      const firstDayCurrentMonthTimestamp =
-        Timestamp.fromDate(firstDayCurrentMonth);
-      const firstDayLastMonthTimestamp = Timestamp.fromDate(firstDayLastMonth);
-      const lastDayLastMonthTimestamp = Timestamp.fromDate(lastDayLastMonth);
-
-      // Query to get all documents in the collection
-      const docsSnapshot = await getDocs(collection(db, collectionName));
-
-      // Count current and previous month documents based on filter or creation timestamp
-      let currentMonthCount = 0;
-      let previousMonthCount = 0;
-
-      docsSnapshot.forEach((doc) => {
-        const data = doc.data();
-        const docTimestamp =
-          data.createdAt instanceof Timestamp
-            ? data.createdAt
-            : data.timestamp instanceof Timestamp
-            ? data.timestamp
-            : null;
-
-        // If we have a custom filter function, use it
-        if (filter) {
-          if (filter(doc)) {
-            currentMonthCount++;
-          }
-
-          // We don't have a good way to know if it would have matched last month
-          // This is a limitation, but we'll approximate using creation date
-          if (
-            docTimestamp &&
-            docTimestamp.toDate() >= firstDayLastMonthTimestamp.toDate() &&
-            docTimestamp.toDate() <= lastDayLastMonthTimestamp.toDate()
-          ) {
-            previousMonthCount++;
-          }
-        }
-        // Otherwise use timestamp-based filtering
-        else if (docTimestamp) {
-          if (docTimestamp.toDate() >= firstDayCurrentMonthTimestamp.toDate()) {
-            currentMonthCount++;
-          } else if (
-            docTimestamp.toDate() >= firstDayLastMonthTimestamp.toDate() &&
-            docTimestamp.toDate() <= lastDayLastMonthTimestamp.toDate()
-          ) {
-            previousMonthCount++;
-          }
-        } else {
-          // If no timestamp available, just count it in the current month
-          currentMonthCount++;
-        }
-      });
-
-      return { currentMonthCount, previousMonthCount };
-    };
-
-    const calculateTrend = (current, previous) => {
-      if (previous === 0) {
-        return current > 0 ? 100 : 0; // If we went from 0 to something, that's a 100% increase
-      }
-      return ((current - previous) / previous) * 100;
-    };
-
-    const fetchStats = async () => {
-      // For each stat, update value and calculate trend
-      for (const [index, stat] of stats.value.entries()) {
-        // Set up listener for real-time value updates
-        onSnapshot(collection(db, stat.collection), (snapshot) => {
-          if (stat.filter) {
-            stat.value = snapshot.docs.filter(stat.filter).length;
-          } else {
-            stat.value = snapshot.size;
-          }
-        });
-
-        // Calculate trend based on month-over-month comparison
-        try {
-          const { currentMonthCount, previousMonthCount } =
-            await getMonthlyStats(stat.collection, stat.filter);
-
-          // Calculate and update trend
-          stats.value[index].trend = calculateTrend(
-            currentMonthCount,
-            previousMonthCount
-          );
-        } catch (error) {
-          console.error(`Error calculating trend for ${stat.title}:`, error);
-          stats.value[index].trend = 0; // Default to 0 if calculation fails
-        }
-      }
-
-      // Initial medication data load
-      fetchMedicationData(selectedAcademicYear.value);
-    };
 
     const fetchRecentActivities = () => {
       const activitiesQuery = query(
@@ -584,16 +278,11 @@ export default {
     };
 
     onMounted(() => {
-      fetchStats();
       fetchRecentActivities();
     });
 
     return {
-      stats,
-      medicationChartOptions,
-      medicationChartSeries,
-      appointmentChartOptions,
-      appointmentChartSeries,
+      quickActions,
       recentActivities,
       formatTimeAgo,
       getActivityIcon,
@@ -601,7 +290,6 @@ export default {
       sortedActivities,
       deleteActivity,
       selectedAcademicYear,
-      academicYearOptions,
     };
   },
 };

@@ -163,22 +163,33 @@
                   </button>
                 </div>
                 <div class="grid grid-cols-2 gap-4">
-                  <input
-                    v-model="formData.personalInfo.studentId"
-                    placeholder="Student ID"
-                    class="px-4 py-2 rounded-lg bg-graytint transition-opacity"
-                    :class="{ 'opacity-70': isEditing && !isEditMode }"
-                    :disabled="isEditing && !isEditMode"
-                    required
-                  />
-                  <input
-                    v-model="formData.personalInfo.lastName"
-                    placeholder="Last Name"
-                    class="px-4 py-2 rounded-lg bg-graytint transition-opacity"
-                    :class="{ 'opacity-70': isEditing && !isEditMode }"
-                    :disabled="isEditing && !isEditMode"
-                    required
-                  />
+                  <div class="relative col-span-2">
+                    <div class="grid grid-cols-2 gap-4">
+                      <input
+                        v-model="formData.personalInfo.studentId"
+                        placeholder="Student ID"
+                        class="px-4 py-2 rounded-lg bg-graytint transition-opacity w-full"
+                        :class="{ 'opacity-70': isEditing && !isEditMode }"
+                        :disabled="isEditing && !isEditMode"
+                        @blur="checkStudentId"
+                        required
+                      />
+                      <input
+                        v-model="formData.personalInfo.lastName"
+                        placeholder="Last Name"
+                        class="px-4 py-2 rounded-lg bg-graytint transition-opacity"
+                        :class="{ 'opacity-70': isEditing && !isEditMode }"
+                        :disabled="isEditing && !isEditMode"
+                        required
+                      />
+                    </div>
+                    <p
+                      v-if="duplicateIdError"
+                      class="text-red-500 text-xs mt-1"
+                    >
+                      This Student ID already exists
+                    </p>
+                  </div>
                   <input
                     v-model="formData.personalInfo.firstName"
                     placeholder="First Name"
@@ -528,6 +539,16 @@ export default {
     const imagePreview = ref(null);
     const documentFiles = ref({});
     const uploading = ref(false);
+    const duplicateIdError = ref(false);
+
+    const checkStudentId = () => {
+      const exists = modalFunctions.allStudents.value.some(
+        (student) =>
+          student.studentId ===
+          modalFunctions.formData.value.personalInfo.studentId
+      );
+      duplicateIdError.value = exists;
+    };
 
     const lazyLoadData = () => {
       if (modalFunctions.currentStep.value === 3 && props.isEditing) {
@@ -612,6 +633,8 @@ export default {
       handleDocumentChange,
       documentFiles,
       uploading,
+      duplicateIdError,
+      checkStudentId,
     };
   },
 };
