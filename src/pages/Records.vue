@@ -270,7 +270,6 @@ export default {
 
       // Prepare table data
       const tableColumns = [
-        "Profile",
         "Date",
         "Student Name",
         "Student ID",
@@ -279,20 +278,14 @@ export default {
         "Status",
       ];
 
-      const tableData = recordsList.filteredRecords.value.map((record) => {
-        // Create an array to hold the row data
-        const rowData = [
-          record.student?.profileImage || "", // Profile Image
-          `${formatDate(record.date)}\n${formatTime(record.date)}`,
-          record.studentName,
-          record.studentId,
-          record.chiefComplaint,
-          record.diagnosis,
-          record.status,
-        ];
-
-        return rowData;
-      });
+      const tableData = recordsList.filteredRecords.value.map((record) => [
+        `${formatDate(record.date)}\n${formatTime(record.date)}`,
+        record.studentName,
+        record.studentId,
+        record.chiefComplaint,
+        record.diagnosis,
+        record.status,
+      ]);
 
       // Generate the table
       autoTable(doc, {
@@ -306,41 +299,12 @@ export default {
           overflow: "linebreak",
         },
         columnStyles: {
-          0: { cellWidth: 20 }, // Profile column
-          1: { cellWidth: 30 },
-          2: { cellWidth: 40 },
-          3: { cellWidth: 30 },
+          0: { cellWidth: 30 },
+          1: { cellWidth: 40 },
+          2: { cellWidth: 30 },
+          3: { cellWidth: 50 },
           4: { cellWidth: 50 },
-          5: { cellWidth: 50 },
-          6: { cellWidth: 30 },
-        },
-        // Custom cell rendering for profile image
-        didParseCell: function (data) {
-          // If it's the first column (profile image) and there's a URL
-          if (data.column.index === 0 && data.cell.raw) {
-            // Convert image to base64 if possible
-            const img = new Image();
-            img.src = data.cell.raw;
-            const canvas = document.createElement("canvas");
-            canvas.width = 50;
-            canvas.height = 50;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0, 50, 50);
-            const base64Image = canvas.toDataURL("image/jpeg");
-
-            // Add image to PDF
-            doc.addImage(
-              base64Image,
-              "JPEG",
-              data.cell.x + 5,
-              data.cell.y + 2,
-              15,
-              15
-            );
-
-            // Clear the cell text
-            data.cell.text = "";
-          }
+          5: { cellWidth: 30 },
         },
       });
 
