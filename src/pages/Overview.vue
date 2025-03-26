@@ -59,7 +59,15 @@
 
     <!-- Recent Activity -->
     <div class="bg-white p-6 rounded-2xl shadow-sm">
-      <h2 class="text-lg font-satoshi-medium mb-4">Recent Activity</h2>
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-lg font-satoshi-medium">Recent Activity</h2>
+        <router-link
+          to="/overview/activities"
+          class="text-blue1/80 hover:text-blue1 text-sm font-medium flex items-center"
+        >
+          View All
+        </router-link>
+      </div>
       <div class="max-h-[400px] overflow-y-auto">
         <div
           v-for="(activity, index) in sortedActivities"

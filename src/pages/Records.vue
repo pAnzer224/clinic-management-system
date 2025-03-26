@@ -2,12 +2,20 @@
   <main class="flex-1 space-y-6">
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-satoshi-bold text-text">Medical Records</h1>
-      <button
-        @click="showAddRecord"
-        class="bg-blue1 hover:bg-blue1/80 text-white px-4 py-2 rounded-full text-[15px]"
-      >
-        Add Record
-      </button>
+      <div class="flex gap-2">
+        <button
+          @click="showAddRecord"
+          class="bg-blue1 hover:bg-blue1/80 text-white px-4 py-2 rounded-full text-[15px]"
+        >
+          Add Record
+        </button>
+        <button
+          @click="downloadTableAsPDF"
+          class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-full text-[15px]"
+        >
+          Download PDF
+        </button>
+      </div>
     </div>
 
     <div class="grid grid-cols-1 gap-4">
@@ -66,15 +74,15 @@
               <table class="w-full table-fixed">
                 <tbody>
                   <tr
-                    v-for="record in filteredRecords"
+                    v-for="record in paginatedRecords"
                     :key="record.id"
                     class="border-t border-graytint/50"
                   >
                     <td class="py-4 w-1/6">
                       <div class="flex flex-col">
-                        <span>{{ formatDateShort(record.date) }}</span>
+                        <span>{{ formatDate(record.date) }}</span>
                         <span class="text-xs text-gray-500">{{
-                          formatTimeOnly(record.date)
+                          formatTime(record.date)
                         }}</span>
                       </div>
                     </td>
@@ -108,6 +116,13 @@
         </div>
       </div>
     </div>
+
+    <!-- Pagination Component -->
+    <Pagination
+      v-if="totalRecordPages > 1"
+      v-model="currentPage"
+      :total-pages="totalRecordPages"
+    />
 
     <RecordModal
       v-model="showModal"
@@ -156,7 +171,8 @@ import RecordModal from "@/components/RecordModal.vue";
 import StudentModal from "@/components/StudentModal.vue";
 import { IntersectingCirclesSpinner } from "epic-spinners";
 import Dropdown from "@/components/Dropdown.vue";
-import { ref } from "vue";
+import Pagination from "@/components/Pagination.vue";
+import { ref, computed } from "vue";
 import {
   collection,
   getDocs,
@@ -166,6 +182,9 @@ import {
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import { logActivity } from "@/utils/activity-logger";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 export default {
   name: "Records",
@@ -178,6 +197,7 @@ export default {
     IntersectingCirclesSpinner,
     Dropdown,
     StudentModal,
+    Pagination,
   },
   setup() {
     const recordsList = useRecordsList();
@@ -201,6 +221,132 @@ export default {
       profileImage: "",
       labTest: "",
     });
+
+    // Add pagination
+    const currentPage = ref(1);
+    const itemsPerPage = ref(10);
+
+    const paginatedRecords = computed(() => {
+      const startIndex = (currentPage.value - 1) * itemsPerPage.value;
+      const endIndex = startIndex + itemsPerPage.value;
+      return recordsList.filteredRecords.value.slice(startIndex, endIndex);
+    });
+
+    const totalRecordPages = computed(() => {
+      return (
+        Math.ceil(
+          recordsList.filteredRecords.value.length / itemsPerPage.value
+        ) || 1
+      );
+    });
+
+    // Date Formatting Functions
+    const formatDate = (dateString) => {
+      if (!dateString) return "";
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    };
+
+    const formatTime = (dateString) => {
+      if (!dateString) return "";
+      const date = new Date(dateString);
+      return date.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+
+    // PDF Download Method
+    const downloadTableAsPDF = () => {
+      const doc = new jsPDF("landscape");
+
+      // Add title to the PDF
+      doc.setFontSize(18);
+      doc.text("Medical Records", 14, 22);
+
+      // Prepare table data
+      const tableColumns = [
+        "Profile",
+        "Date",
+        "Student Name",
+        "Student ID",
+        "Chief Complaint",
+        "Diagnosis",
+        "Status",
+      ];
+
+      const tableData = recordsList.filteredRecords.value.map((record) => {
+        // Create an array to hold the row data
+        const rowData = [
+          record.student?.profileImage || "", // Profile Image
+          `${formatDate(record.date)}\n${formatTime(record.date)}`,
+          record.studentName,
+          record.studentId,
+          record.chiefComplaint,
+          record.diagnosis,
+          record.status,
+        ];
+
+        return rowData;
+      });
+
+      // Generate the table
+      autoTable(doc, {
+        startY: 30,
+        head: [tableColumns],
+        body: tableData,
+        theme: "striped",
+        styles: {
+          fontSize: 10,
+          cellPadding: 3,
+          overflow: "linebreak",
+        },
+        columnStyles: {
+          0: { cellWidth: 20 }, // Profile column
+          1: { cellWidth: 30 },
+          2: { cellWidth: 40 },
+          3: { cellWidth: 30 },
+          4: { cellWidth: 50 },
+          5: { cellWidth: 50 },
+          6: { cellWidth: 30 },
+        },
+        // Custom cell rendering for profile image
+        didParseCell: function (data) {
+          // If it's the first column (profile image) and there's a URL
+          if (data.column.index === 0 && data.cell.raw) {
+            // Convert image to base64 if possible
+            const img = new Image();
+            img.src = data.cell.raw;
+            const canvas = document.createElement("canvas");
+            canvas.width = 50;
+            canvas.height = 50;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, 50, 50);
+            const base64Image = canvas.toDataURL("image/jpeg");
+
+            // Add image to PDF
+            doc.addImage(
+              base64Image,
+              "JPEG",
+              data.cell.x + 5,
+              data.cell.y + 2,
+              15,
+              15
+            );
+
+            // Clear the cell text
+            data.cell.text = "";
+          }
+        },
+      });
+
+      // Save the PDF
+      doc.save("medical_records.pdf");
+    };
 
     async function handleStudentSubmit(data) {
       try {
@@ -245,6 +391,16 @@ export default {
       showStudentModal,
       studentFormData,
       handleStudentSubmit,
+      // Pagination
+      currentPage,
+      itemsPerPage,
+      paginatedRecords,
+      totalRecordPages,
+      // PDF Download
+      downloadTableAsPDF,
+      // Date Formatting
+      formatDate,
+      formatTime,
     };
   },
 };

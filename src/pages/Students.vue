@@ -21,7 +21,7 @@
               type="search"
               v-model="searchQuery"
               placeholder="Search by student name or ID..."
-              class="pl-10 px-4 py-2 rounded-full bg-graytint/40 border border-text/20 focus:ring-1 focus:ring-blue1/50 focus:outline-none"
+              class="pl-10 px-4 py-2 rounded-full bg-graytint/40 border border-text/20 focus:ring-1 focus:ring-blue1/50 focus:outline-none appearance-none"
             />
           </div>
           <Dropdown
@@ -70,7 +70,7 @@
               <table class="w-full table-fixed">
                 <tbody>
                   <tr
-                    v-for="student in filteredStudents"
+                    v-for="student in paginatedStudents"
                     :key="student.studentId"
                     class="border-t border-graytint/50"
                   >
@@ -143,11 +143,18 @@
     >
       {{ toastMessage }}
     </div>
+
+    <!-- Pagination Component -->
+    <Pagination
+      v-if="totalStudentPages > 1"
+      v-model="currentPage"
+      :total-pages="totalStudentPages"
+    />
   </main>
 </template>
 
 <script>
-import { onMounted, onBeforeUnmount } from "vue";
+import { onMounted, onBeforeUnmount, ref, computed } from "vue";
 import {
   EyeIcon,
   TrashIcon,
@@ -156,6 +163,7 @@ import {
 import StudentModal from "@/components/StudentModal.vue";
 import { IntersectingCirclesSpinner } from "epic-spinners";
 import Dropdown from "@/components/Dropdown.vue";
+import Pagination from "@/components/Pagination.vue";
 import { useStudentsList } from "@/composables/studentManagement";
 
 export default {
@@ -167,6 +175,7 @@ export default {
     MagnifyingGlassIcon,
     IntersectingCirclesSpinner,
     Dropdown,
+    Pagination,
   },
   setup() {
     const {
@@ -195,6 +204,20 @@ export default {
       cleanup,
     } = useStudentsList();
 
+    // Add pagination
+    const currentPage = ref(1);
+    const itemsPerPage = ref(10);
+
+    const paginatedStudents = computed(() => {
+      const startIndex = (currentPage.value - 1) * itemsPerPage.value;
+      const endIndex = startIndex + itemsPerPage.value;
+      return filteredStudents.value.slice(startIndex, endIndex);
+    });
+
+    const totalStudentPages = computed(() => {
+      return Math.ceil(filteredStudents.value.length / itemsPerPage.value) || 1;
+    });
+
     onMounted(() => {
       initializeStudents();
     });
@@ -214,6 +237,7 @@ export default {
       isEditing,
       formData,
       filteredStudents,
+      paginatedStudents,
       yearFilterOptions,
       schoolYearFilterOptions,
       showToast,
@@ -221,6 +245,8 @@ export default {
       currentUser,
       appointments,
       studentMedicalRecords,
+      currentPage,
+      totalStudentPages,
       add,
       editStudent,
       deleteStudent,

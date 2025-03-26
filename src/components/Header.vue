@@ -37,8 +37,8 @@
           to="/analytics"
           class="hidden sm:block"
           :class="{
-            'text-blue1 font-satoshi-medium': $route.path === '/medications',
-            'text-gray-600 hover:text-gray-900': $route.path !== '/medications',
+            'text-blue1 font-satoshi-medium': $route.path === '/analytics',
+            'text-gray-600 hover:text-gray-900': $route.path !== '/analytics',
           }"
           >Analytics</router-link
         >
@@ -67,6 +67,15 @@
       </div>
     </div>
     <div v-if="isMenuOpen" class="sm:hidden">
+      <router-link
+        to="/analytics"
+        class="block px-4 py-2 mt-2"
+        :class="{
+          'text-blue1 font-satoshi-medium': $route.path === '/analytics',
+          'text-gray-600 hover:text-gray-900': $route.path !== '/analytics',
+        }"
+        >Analytics</router-link
+      >
       <router-link
         to="/medications"
         class="block px-4 py-2"

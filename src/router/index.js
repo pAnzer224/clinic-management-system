@@ -48,12 +48,17 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/overview/activities",
+    name: "ActivityHistory",
+    component: () => import("@/pages/ActivityHistory.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
     path: "/alerts",
     name: "Alerts",
     component: () => import("@/pages/Alerts.vue"),
     meta: { requiresAuth: true },
   },
-
   {
     path: "/security",
     name: "Security",
