@@ -313,13 +313,9 @@ export default {
     const currentUser = ref(
       JSON.parse(localStorage.getItem("currentUser")) || {}
     );
-
-    // Computed property for time slot options format needed by Dropdown
     const timeSlotOptions = computed(() => {
       return timeSlots.value.map((slot) => ({ value: slot, label: slot }));
     });
-
-    // Unsubscribe functions for cleanup
     let unsubscribeAppointments = null;
     let unsubscribeStudents = null;
     let unsubscribeSettings = null;
@@ -416,8 +412,6 @@ export default {
         appointmentForm.value.studentId = student.studentId;
       }
     });
-
-    // Real-time students listener
     function listenToStudents() {
       const studentsQuery = query(collection(db, "students"));
       unsubscribeStudents = onSnapshot(
@@ -431,8 +425,6 @@ export default {
         }
       );
     }
-
-    // Real-time appointments listener
     function listenToAppointments() {
       const appointmentsQuery = query(
         collection(db, "appointments"),

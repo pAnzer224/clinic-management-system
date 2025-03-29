@@ -2,13 +2,19 @@
   <main class="flex-1 space-y-6">
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-satoshi-bold text-text">Analytics Dashboard</h1>
-      <button
-        @click="downloadCSVReport"
-        class="bg-blue1 hover:bg-blue1/80 text-white px-4 py-2 rounded-full text-[15px] flex items-center gap-2"
-      >
-        <DownloadIcon class="h-5 w-5" />
-        Download Report
-      </button>
+      <div class="relative group">
+        <button
+          @click="downloadCSVReport"
+          class="text-blue1 hover:text-blue1/80 flex items-center justify-center h-full"
+        >
+          <DownloadIcon class="size-6" />
+        </button>
+        <div
+          class="absolute z-10 bottom-[-33px] left-[-98px] tracking-wide bg-gray-800/70 text-background text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap"
+        >
+          Download Report
+        </div>
+      </div>
     </div>
 
     <!-- Stats Cards -->

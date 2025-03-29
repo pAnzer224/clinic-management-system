@@ -9,12 +9,19 @@
         >
           Add Record
         </button>
-        <button
-          @click="downloadTableAsPDF"
-          class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-full text-[15px]"
-        >
-          Download PDF
-        </button>
+        <div class="relative group">
+          <button
+            @click="downloadTableAsPDF"
+            class="text-blue1 hover:text-blue1/80 flex items-center justify-center h-full"
+          >
+            <Download class="size-6" />
+          </button>
+          <div
+            class="absolute z-10 bottom-[-33px] left-[-98px] tracking-wide bg-gray-800/70 text-background text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap"
+          >
+            Download as PDF
+          </div>
+        </div>
       </div>
     </div>
 
@@ -22,7 +29,7 @@
       <div class="bg-white rounded-2xl px-8 pt-8 pb-2 shadow-sm">
         <div class="flex gap-4 mb-6 text-[13px] relative">
           <div class="relative w-80 flex-1">
-            <MagnifyingGlassIcon
+            <Search
               class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
             />
             <input
@@ -96,13 +103,13 @@
                         @click="editRecord(record)"
                         class="text-blue2/90 hover:text-blue1"
                       >
-                        <EyeIcon class="h-5 w-5 inline" />
+                        <Eye class="h-5 w-5 inline" />
                       </button>
                       <button
                         @click="deleteRecord(record)"
                         class="text-red-600"
                       >
-                        <TrashIcon class="h-5 w-5 inline" />
+                        <Trash2 class="h-5 w-5 inline" />
                       </button>
                     </td>
                   </tr>
@@ -141,7 +148,7 @@
         <div class="flex justify-between items-center mb-4">
           <h3 class="text-lg font-satoshi-bold">Health Alerts</h3>
           <button @click="showHealthAlert = false" class="text-gray-500">
-            <XMarkIcon class="h-5 w-5" />
+            <X class="h-5 w-5" />
           </button>
         </div>
         <div class="space-y-2">
@@ -161,23 +168,19 @@
 
 <script>
 import { useRecordsList } from "@/composables/recordManagement";
-import {
-  EyeIcon,
-  TrashIcon,
-  XMarkIcon,
-  MagnifyingGlassIcon,
-} from "@heroicons/vue/24/outline";
+import { Download, Eye, Trash2, X, Search } from "lucide-vue-next";
 import RecordModal from "@/components/RecordModal.vue";
 import StudentModal from "@/components/StudentModal.vue";
 import { IntersectingCirclesSpinner } from "epic-spinners";
 import Dropdown from "@/components/Dropdown.vue";
 import Pagination from "@/components/Pagination.vue";
-import { ref, computed } from "vue";
+import { ref, computed, onMounted } from "vue";
 import {
   collection,
   getDocs,
   setDoc,
   doc,
+  deleteDoc,
   serverTimestamp,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
@@ -185,22 +188,44 @@ import { logActivity } from "@/utils/activity-logger";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import autoTable from "jspdf-autotable";
+import logoSrc from "@/assets/images/logo.png";
+import cpsuLogoSrc from "@/assets/images/cpsulogo.png";
 
 export default {
   name: "Records",
   components: {
     RecordModal,
-    EyeIcon,
-    TrashIcon,
-    XMarkIcon,
-    MagnifyingGlassIcon,
+    Download,
+    Eye,
+    Trash2,
+    X,
+    Search,
     IntersectingCirclesSpinner,
     Dropdown,
     StudentModal,
     Pagination,
   },
   setup() {
-    const recordsList = useRecordsList();
+    const {
+      records,
+      students,
+      searchQuery,
+      filterDate,
+      showModal,
+      showHealthAlert,
+      isEditing,
+      formData,
+      healthAlerts,
+      filteredRecords,
+      loading,
+      dateFilterOptions,
+      appointments,
+      showAddRecord,
+      editRecord,
+      deleteRecord,
+      submitForm,
+    } = useRecordsList();
+
     const showStudentModal = ref(false);
     const studentFormData = ref({
       studentId: "",
@@ -229,15 +254,11 @@ export default {
     const paginatedRecords = computed(() => {
       const startIndex = (currentPage.value - 1) * itemsPerPage.value;
       const endIndex = startIndex + itemsPerPage.value;
-      return recordsList.filteredRecords.value.slice(startIndex, endIndex);
+      return filteredRecords.value.slice(startIndex, endIndex);
     });
 
     const totalRecordPages = computed(() => {
-      return (
-        Math.ceil(
-          recordsList.filteredRecords.value.length / itemsPerPage.value
-        ) || 1
-      );
+      return Math.ceil(filteredRecords.value.length / itemsPerPage.value) || 1;
     });
 
     // Date Formatting Functions
@@ -264,9 +285,45 @@ export default {
     const downloadTableAsPDF = () => {
       const doc = new jsPDF("landscape");
 
-      // Add title to the PDF
-      doc.setFontSize(18);
-      doc.text("Medical Records", 14, 22);
+      // Add logos and title
+      const addHeader = () => {
+        // Add Clinic Management Logo
+        const logoWidth = 20;
+        const logoHeight = 20;
+        doc.addImage(logoSrc, "PNG", 14, 10, logoWidth, logoHeight);
+
+        // Add CPSU Logo
+        const cpsuLogoWidth = 20;
+        const cpsuLogoHeight = 20;
+        doc.addImage(
+          cpsuLogoSrc,
+          "PNG",
+          doc.internal.pageSize.width - 34,
+          10,
+          cpsuLogoWidth,
+          cpsuLogoHeight
+        );
+
+        // Add title
+        doc.setFontSize(18);
+        doc.text(
+          "Clinic Management System - Medical Records",
+          doc.internal.pageSize.width / 2,
+          22,
+          { align: "center" }
+        );
+
+        // Add current date
+        doc.setFontSize(10);
+        doc.text(
+          `As of: ${new Date().toLocaleDateString()}`,
+          doc.internal.pageSize.width / 2,
+          28,
+          { align: "center" }
+        );
+      };
+
+      addHeader();
 
       // Prepare table data
       const tableColumns = [
@@ -278,7 +335,7 @@ export default {
         "Status",
       ];
 
-      const tableData = recordsList.filteredRecords.value.map((record) => [
+      const tableData = filteredRecords.value.map((record) => [
         `${formatDate(record.date)}\n${formatTime(record.date)}`,
         record.studentName,
         record.studentId,
@@ -289,7 +346,7 @@ export default {
 
       // Generate the table
       autoTable(doc, {
-        startY: 30,
+        startY: 40,
         head: [tableColumns],
         body: tableData,
         theme: "striped",
@@ -308,7 +365,6 @@ export default {
         },
       });
 
-      // Save the PDF
       doc.save("medical_records.pdf");
     };
 
@@ -334,35 +390,41 @@ export default {
         formData.value.student = studentData;
         formData.value.studentId = studentData.studentId;
         formData.value.studentName = `${studentData.firstName} ${studentData.lastName}`;
-        await fetchStudentData(studentData.studentId);
 
         showStudentModal.value = false;
-
-        // Show success notification
-        const toast = useToast();
-        toast.success(
-          `Student ${studentData.firstName} ${studentData.lastName} added successfully`
-        );
       } catch (error) {
         console.error("Error saving student:", error);
-        const toast = useToast();
-        toast.error("Error adding student");
       }
     }
 
     return {
-      ...recordsList,
+      // Return all composable values and functions
+      records,
+      students,
+      searchQuery,
+      filterDate,
+      showModal,
+      showHealthAlert,
+      isEditing,
+      formData,
+      healthAlerts,
+      filteredRecords,
+      loading,
+      dateFilterOptions,
+      appointments,
+      showAddRecord,
+      editRecord,
+      deleteRecord,
+      submitForm,
+
       showStudentModal,
       studentFormData,
       handleStudentSubmit,
-      // Pagination
       currentPage,
       itemsPerPage,
       paginatedRecords,
       totalRecordPages,
-      // PDF Download
       downloadTableAsPDF,
-      // Date Formatting
       formatDate,
       formatTime,
     };

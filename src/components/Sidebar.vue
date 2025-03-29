@@ -69,12 +69,12 @@
           }"
         >
           <component
-            v-if="item.name !== 'Appointments'"
+            v-if="item.name !== 'Appointments' && item.name !== 'Alerts'"
             :is="item.icon"
             class="size-6 text-blue2/80 group-hover:text-blue2 ml-2"
           />
           <svg
-            v-else
+            v-else-if="item.name === 'Appointments'"
             width="24"
             height="24"
             viewBox="0 0 24 24"
@@ -93,6 +93,15 @@
               fill="currentColor"
             />
           </svg>
+          <div v-else-if="item.name === 'Alerts'" class="relative ml-2">
+            <BellIcon class="size-6 text-blue2/80 group-hover:text-blue2" />
+            <span
+              v-if="alertNotificationsCount > 0"
+              class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-2 py-0.5 animate-pulse"
+            >
+              {{ alertNotificationsCount }}
+            </span>
+          </div>
           <span class="truncate">{{ item.name }}</span>
         </router-link>
       </nav>
@@ -114,7 +123,7 @@
           }"
         >
           <component
-            v-if="item.name !== 'Appointments'"
+            v-if="item.name !== 'Appointments' && item.name !== 'Alerts'"
             :is="item.icon"
             class="size-6"
             :class="{
@@ -123,7 +132,7 @@
             }"
           />
           <svg
-            v-else
+            v-else-if="item.name === 'Appointments'"
             width="24"
             height="24"
             viewBox="0 0 24 24"
@@ -146,13 +155,22 @@
               fill="currentColor"
             />
           </svg>
+          <div v-else-if="item.name === 'Alerts'" class="relative">
+            <BellIcon class="size-6" />
+            <span
+              v-if="alertNotificationsCount > 0"
+              class="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5 animate-pulse"
+            >
+              {{ alertNotificationsCount }}
+            </span>
+          </div>
           <span class="text-xs mt-1 hidden">{{ item.name }}</span>
         </router-link>
       </div>
     </nav>
+    <audio ref="notificationSound" src="/notif-sound.mp3"></audio>
   </div>
 </template>
-
 <script>
 import {
   HomeIcon,
@@ -165,7 +183,13 @@ import {
 } from "@heroicons/vue/24/solid";
 import { useRouter } from "vue-router";
 import { ref, onMounted, computed, onBeforeUnmount } from "vue";
-import { ShieldCheck } from "lucide-vue-next";
+import {
+  getFirestore,
+  collection,
+  onSnapshot,
+  query,
+  where,
+} from "firebase/firestore";
 
 export default {
   name: "Sidebar",
@@ -183,11 +207,42 @@ export default {
     const isMenuOpen = ref(false);
     const currentUser = ref({});
     const menuContainer = ref(null);
+    const alertNotificationsCount = ref(0);
+    const previousAlertCount = ref(0);
+    const notificationSound = ref(null);
+    const db = getFirestore();
 
     const handleClickOutside = (event) => {
       if (menuContainer.value && !menuContainer.value.contains(event.target)) {
         isMenuOpen.value = false;
       }
+    };
+
+    const setupAlertNotifications = () => {
+      const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+      const alertsRef = collection(db, "healthAlerts");
+      const unreadQuery = query(
+        alertsRef,
+        where("isRead", "==", false),
+        where("priority", "in", ["High", "Medium"])
+      );
+      const unsubscribe = onSnapshot(unreadQuery, (snapshot) => {
+        previousAlertCount.value = alertNotificationsCount.value;
+        alertNotificationsCount.value = snapshot.docs.length;
+
+        // Play sound only when new alerts arrive
+        if (alertNotificationsCount.value > previousAlertCount.value) {
+          playNotificationSound();
+        }
+      });
+      return unsubscribe;
+    };
+
+    const playNotificationSound = () => {
+      const audio = new Audio("/notif-sound.mp3");
+      audio.play().catch((error) => {
+        console.warn("Unable to play notification sound:", error);
+      });
     };
 
     onMounted(() => {
@@ -196,6 +251,7 @@ export default {
         currentUser.value = JSON.parse(userData);
       }
       document.addEventListener("click", handleClickOutside);
+      setupAlertNotifications();
     });
 
     onBeforeUnmount(() => {
@@ -213,7 +269,14 @@ export default {
       handleLogout,
       currentUser,
       menuContainer,
+      alertNotificationsCount,
+      notificationSound,
     };
+  },
+  methods: {
+    onAlertClick() {
+      // Any additional logic when alerts are clicked
+    },
   },
   data() {
     return {
@@ -222,7 +285,11 @@ export default {
         { name: "Students", path: "/students", icon: "UsersIcon" },
         { name: "Appointments", path: "/appointments", icon: "CalendarIcon" },
         { name: "Records", path: "/records", icon: "DocumentTextIcon" },
-        { name: "Alerts", path: "/alerts", icon: "BellIcon" },
+        {
+          name: "Alerts",
+          path: "/alerts",
+          icon: "BellIcon",
+        },
         {
           name: "Security",
           path: "/security",

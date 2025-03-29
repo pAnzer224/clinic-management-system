@@ -15,7 +15,6 @@ import { db } from "@/firebase-config";
 import { useCRUD } from "@/utils/firebaseCRUD";
 import { logActivity } from "@/utils/activity-logger";
 
-// Constants
 const TABLE_HEADERS = [
   "Date",
   "Student Name",
@@ -197,8 +196,7 @@ export function useRecordsList() {
   async function deleteRecord(record) {
     if (confirm("Are you sure you want to delete this record?")) {
       try {
-        const docRef = doc(db, "medicalRecords", record.id.toString());
-        await deleteDoc(docRef);
+        await deleteDoc(doc(db, "medicalRecords", record.id));
       } catch (error) {
         console.error("Error deleting record:", error);
       }
@@ -207,18 +205,19 @@ export function useRecordsList() {
 
   async function submitForm(data) {
     try {
-      const docRef = doc(
-        db,
-        "medicalRecords",
-        data.id || Date.now().toString()
-      );
-      await setDoc(docRef, {
+      const docId = data.id || `record_${Date.now()}`;
+
+      await setDoc(doc(db, "medicalRecords", docId), {
         ...data,
+        id: docId,
         updatedAt: new Date().toISOString(),
       });
+
       showModal.value = false;
+      // Add a success notification here if needed
     } catch (error) {
       console.error("Error saving record:", error);
+      // Handle the error appropriately
     }
   }
 
@@ -416,7 +415,6 @@ export function useRecordModal(props, { emit }) {
     if (newMedication.value.medicationId && newMedication.value.dosage) {
       if (!formData.value.medications) formData.value.medications = [];
 
-      // Find the selected medication from the medications array
       const selectedMed = medications.value.find(
         (m) => m.id === newMedication.value.medicationId
       );
@@ -424,7 +422,6 @@ export function useRecordModal(props, { emit }) {
       // Get quantity (default to 1 if not specified)
       const quantity = parseInt(newMedication.value.quantity) || 1;
 
-      // Only add if we have enough stock
       if (selectedMed && selectedMed.currentStock >= quantity) {
         formData.value.medications.push({
           medicationId: newMedication.value.medicationId,
@@ -435,7 +432,6 @@ export function useRecordModal(props, { emit }) {
           quantity: quantity,
         });
 
-        // Reset form
         newMedication.value = {
           medicationId: "",
           name: "",
