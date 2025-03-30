@@ -20,7 +20,7 @@ const TABLE_HEADERS = [
   "Student Name",
   "Student ID",
   "Chief Complaint",
-  "Diagnosis",
+  "Treatment",
   "Status",
   "Actions",
 ];
@@ -32,8 +32,8 @@ const INITIAL_FORM = {
   studentName: "",
   chiefComplaint: "",
   symptoms: [],
-  diagnosis: "",
   treatment: "",
+  remarks: "",
   medications: [],
   notes: "",
   followUpDate: "",

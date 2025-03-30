@@ -63,7 +63,7 @@
                   <th class="pb-4 w-1/6">Student Name</th>
                   <th class="pb-4 w-1/6">Student ID</th>
                   <th class="pb-4 w-1/6">Chief Complaint</th>
-                  <th class="pb-4 w-1/6">Diagnosis</th>
+                  <th class="pb-4 w-1/6">Treatment</th>
                   <th class="pb-4 w-1/6">Status</th>
                   <th class="pb-4 w-1/12">Actions</th>
                 </tr>
@@ -96,7 +96,7 @@
                     <td class="w-1/6 truncate">{{ record.studentName }}</td>
                     <td class="w-1/6">{{ record.studentId }}</td>
                     <td class="w-1/6 truncate">{{ record.chiefComplaint }}</td>
-                    <td class="w-1/6 truncate">{{ record.diagnosis }}</td>
+                    <td class="w-1/6 truncate">{{ record.treatment }}</td>
                     <td class="w-1/6">{{ record.status }}</td>
                     <td class="w-1/12 space-x-2">
                       <button
@@ -285,83 +285,112 @@ export default {
     const downloadTableAsPDF = () => {
       const doc = new jsPDF("landscape");
 
-      // Add logos and title
-      const addHeader = () => {
-        // Add Clinic Management Logo
-        const logoWidth = 20;
-        const logoHeight = 20;
-        doc.addImage(logoSrc, "PNG", 14, 10, logoWidth, logoHeight);
+      // Set page margins to center content
+      const pageWidth = doc.internal.pageSize.width;
+      const pageHeight = doc.internal.pageSize.height;
+      const margin = 20;
+      const contentWidth = pageWidth - margin * 2;
+      const centerX = pageWidth / 2;
 
-        // Add CPSU Logo
-        const cpsuLogoWidth = 20;
-        const cpsuLogoHeight = 20;
-        doc.addImage(
-          cpsuLogoSrc,
-          "PNG",
-          doc.internal.pageSize.width - 34,
-          10,
-          cpsuLogoWidth,
-          cpsuLogoHeight
-        );
+      // logo
+      const logoWidth = 20;
+      const logoHeight = 20;
+      doc.addImage(logoSrc, "PNG", margin, margin, logoWidth, logoHeight);
 
-        // Add title
-        doc.setFontSize(18);
-        doc.text(
-          "Clinic Management System - Medical Records",
-          doc.internal.pageSize.width / 2,
-          22,
-          { align: "center" }
-        );
+      //CPSU Logo
+      const cpsuLogoWidth = 20;
+      const cpsuLogoHeight = 20;
+      doc.addImage(
+        cpsuLogoSrc,
+        "PNG",
+        pageWidth - margin - cpsuLogoWidth,
+        margin,
+        cpsuLogoWidth,
+        cpsuLogoHeight
+      );
 
-        // Add current date
-        doc.setFontSize(10);
-        doc.text(
-          `As of: ${new Date().toLocaleDateString()}`,
-          doc.internal.pageSize.width / 2,
-          28,
-          { align: "center" }
-        );
-      };
+      // title
+      doc.setFontSize(18);
+      doc.text(
+        "Clinic Management System - Medical Records",
+        centerX,
+        margin + 12,
+        { align: "center" }
+      );
 
-      addHeader();
+      // current date
+      doc.setFontSize(10);
+      doc.text(
+        `As of: ${new Date().toLocaleDateString()}`,
+        centerX,
+        margin + 18,
+        { align: "center" }
+      );
 
-      // Prepare table data
       const tableColumns = [
         "Date",
-        "Student Name",
-        "Student ID",
+        "Name",
+        "Course",
         "Chief Complaint",
-        "Diagnosis",
-        "Status",
+        "Treatment",
+        "Remarks",
       ];
 
       const tableData = filteredRecords.value.map((record) => [
         `${formatDate(record.date)}\n${formatTime(record.date)}`,
         record.studentName,
-        record.studentId,
+        record.student?.course || "",
         record.chiefComplaint,
-        record.diagnosis,
-        record.status,
+        record.treatment,
+        record.remarks || "",
       ]);
 
-      // Generate the table
+      // Generate the table with centered configuration
       autoTable(doc, {
-        startY: 40,
+        startY: margin + 30,
         head: [tableColumns],
         body: tableData,
         theme: "striped",
+        margin: { left: margin, right: margin },
         styles: {
           fontSize: 10,
           cellPadding: 3,
           overflow: "linebreak",
+          halign: "center",
+          valign: "middle",
+        },
+        headStyles: {
+          fillColor: [63, 115, 206],
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          halign: "center",
         },
         columnStyles: {
-          0: { cellWidth: 30 },
-          1: { cellWidth: 40 },
-          2: { cellWidth: 30 },
-          3: { cellWidth: 50 },
-          4: { cellWidth: 50 },
-          5: { cellWidth: 30 },
+          0: { cellWidth: contentWidth * 0.13 }, // Date
+          1: { cellWidth: contentWidth * 0.17 }, // Name
+          2: { cellWidth: contentWidth * 0.13 }, // Course
+          3: { cellWidth: contentWidth * 0.22 }, // Chief Complaint
+          4: { cellWidth: contentWidth * 0.22 }, // Treatment
+          5: { cellWidth: contentWidth * 0.13 }, // Remarks
+        },
+        didDrawPage: function (data) {
+          if (data.pageNumber > 1) {
+            doc.setFontSize(12);
+            doc.text(
+              "Clinic Management System - Medical Records",
+              centerX,
+              margin / 2,
+              { align: "center" }
+            );
+          }
+
+          doc.setFontSize(8);
+          doc.text(
+            `Page ${data.pageNumber}`,
+            centerX,
+            pageHeight - margin / 2,
+            { align: "center" }
+          );
         },
       });
 

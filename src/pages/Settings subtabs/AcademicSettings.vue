@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-6">
-    <!-- Time Slots Section (Now First) -->
+    <!-- Time Slots Section -->
     <div class="bg-white rounded-2xl p-8 shadow-sm">
       <h2 class="text-md font-satoshi-medium text-text mb-6">
         Appointment Time Slots
@@ -56,7 +56,7 @@
       </div>
     </div>
 
-    <!-- Academic Years Section (Now Second) -->
+    <!-- Academic Years Section -->
     <div class="bg-white rounded-2xl p-8 shadow-sm">
       <h2 class="text-md font-satoshi-medium text-text mb-6">Academic Years</h2>
       <div class="space-y-4">
@@ -87,6 +87,61 @@
               class="text-red-500 hover:text-red-700"
             >
               Remove
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Auto Year Level Update Section -->
+    <div class="bg-white rounded-2xl p-8 shadow-sm">
+      <h2 class="text-md font-satoshi-medium text-text mb-6">
+        Auto Year Level Update
+      </h2>
+      <div class="space-y-4">
+        <div class="flex flex-col gap-2">
+          <label class="text-sm text-gray-600">Academic Year Start Date</label>
+          <input
+            v-model="yearUpdateDate"
+            type="date"
+            class="px-4 py-2 rounded-full border bg-graytint"
+          />
+        </div>
+
+        <div class="flex items-center gap-4">
+          <Dropdown
+            v-model="selectedSchoolYear"
+            :options="academicYearOptions"
+            class="w-full"
+          />
+          <button
+            @click="updateAllStudentYears"
+            class="bg-blue1 text-white px-6 py-2 rounded-full whitespace-nowrap"
+            :disabled="updating"
+          >
+            {{ updating ? "Updating..." : "Apply Updates" }}
+          </button>
+        </div>
+
+        <div
+          v-if="autoUpdateEnabled"
+          class="p-3 bg-green-100 text-green-800 rounded-lg"
+        >
+          <div class="flex justify-between items-center">
+            <div>
+              <p>
+                Automatic updates scheduled for:
+                {{ formatDate(yearUpdateDate) }}
+              </p>
+              <p class="text-sm mt-1">
+                Next academic year: {{ selectedSchoolYear }}
+              </p>
+            </div>
+            <button
+              @click="disableAutoUpdate"
+              class="text-red-500 hover:text-red-700"
+            >
+              Cancel
             </button>
           </div>
         </div>
@@ -227,10 +282,24 @@
 
 <script>
 import { db } from "@/firebase-config";
-import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
+import {
+  doc,
+  setDoc,
+  getDoc,
+  serverTimestamp,
+  collection,
+  getDocs,
+  updateDoc,
+  query,
+  where,
+} from "firebase/firestore";
+import Dropdown from "@/components/Dropdown.vue";
 
 export default {
   name: "AcademicSettings",
+  components: {
+    Dropdown,
+  },
   emits: ["notification"],
   data() {
     return {
@@ -243,7 +312,21 @@ export default {
       selectedHour: null,
       selectedMinute: null,
       selectedAmPm: "AM",
+      // Year Level Update
+      yearUpdateDate: "",
+      selectedSchoolYear: "",
+      autoUpdateEnabled: false,
+      autoUpdateSettings: null,
+      updating: false,
     };
+  },
+  computed: {
+    academicYearOptions() {
+      return [
+        { value: "", label: "Select Academic Year" },
+        ...this.academicYears.map((year) => ({ value: year, label: year })),
+      ];
+    },
   },
   async mounted() {
     // Load academic years
@@ -277,9 +360,20 @@ export default {
           updatedAt: serverTimestamp(),
         });
       }
+
+      // Load auto update settings
+      const autoUpdateDoc = await getDoc(
+        doc(db, "settings", "yearLevelUpdate")
+      );
+      if (autoUpdateDoc.exists()) {
+        this.autoUpdateSettings = autoUpdateDoc.data();
+        this.yearUpdateDate = this.autoUpdateSettings.updateDate;
+        this.selectedSchoolYear = this.autoUpdateSettings.nextSchoolYear;
+        this.autoUpdateEnabled = true;
+      }
     } catch (error) {
-      console.error("Error loading time slots:", error);
-      this.$emit("notification", "Error loading time slots");
+      console.error("Error loading settings:", error);
+      this.$emit("notification", "Error loading settings");
     }
   },
   methods: {
@@ -316,6 +410,15 @@ export default {
           slots: this.timeSlots,
           updatedAt: serverTimestamp(),
         });
+
+        // Save auto update settings
+        if (this.autoUpdateEnabled) {
+          await setDoc(doc(db, "settings", "yearLevelUpdate"), {
+            updateDate: this.yearUpdateDate,
+            nextSchoolYear: this.selectedSchoolYear,
+            updatedAt: serverTimestamp(),
+          });
+        }
 
         return true;
       } catch (error) {
@@ -375,6 +478,83 @@ export default {
     removeTimeSlot(slot) {
       this.timeSlots = this.timeSlots.filter((s) => s !== slot);
       this.$parent.showNotification("Time slot removed");
+    },
+    async updateAllStudentYears() {
+      if (!this.yearUpdateDate || !this.selectedSchoolYear) {
+        this.$parent.showNotification("Please set both date and academic year");
+        return;
+      }
+
+      this.updating = true;
+      try {
+        // Get students collection reference
+        const studentsRef = collection(db, "students");
+        const querySnapshot = await getDocs(studentsRef);
+
+        // Process each student
+        for (const studentDoc of querySnapshot.docs) {
+          const student = studentDoc.data();
+          let newYearLevel = student.yearLevel;
+
+          // Determine the new year level
+          if (student.yearLevel === "1st Year") {
+            newYearLevel = "2nd Year";
+          } else if (student.yearLevel === "2nd Year") {
+            newYearLevel = "3rd Year";
+          } else if (student.yearLevel === "3rd Year") {
+            newYearLevel = "4th Year";
+          } else if (student.yearLevel === "4th Year") {
+            newYearLevel = "Graduate";
+          }
+
+          // Update the student document if year level changed
+          if (newYearLevel !== student.yearLevel) {
+            await updateDoc(doc(db, "students", studentDoc.id), {
+              yearLevel: newYearLevel,
+              schoolYear: this.selectedSchoolYear,
+            });
+          }
+        }
+
+        // Save auto update settings to Firestore
+        await setDoc(doc(db, "settings", "yearLevelUpdate"), {
+          updateDate: this.yearUpdateDate,
+          nextSchoolYear: this.selectedSchoolYear,
+          updatedAt: serverTimestamp(),
+        });
+
+        this.autoUpdateEnabled = true;
+        this.autoUpdateSettings = {
+          updateDate: this.yearUpdateDate,
+          nextSchoolYear: this.selectedSchoolYear,
+        };
+
+        this.$parent.showNotification(
+          "Student year levels updated successfully"
+        );
+      } catch (error) {
+        console.error("Error updating student year levels:", error);
+        this.$parent.showNotification("Error updating student year levels");
+      } finally {
+        this.updating = false;
+      }
+    },
+    disableAutoUpdate() {
+      this.autoUpdateEnabled = false;
+      setDoc(doc(db, "settings", "yearLevelUpdate"), {
+        enabled: false,
+        updatedAt: serverTimestamp(),
+      });
+      this.$parent.showNotification("Automatic updates disabled");
+    },
+    formatDate(dateString) {
+      if (!dateString) return "";
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
     },
   },
 };

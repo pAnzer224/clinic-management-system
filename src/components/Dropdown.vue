@@ -28,16 +28,21 @@
         class="absolute z-50 mt-1 w-full bg-white rounded-lg shadow-lg border border-text/10 overflow-hidden"
       >
         <div
-          v-for="option in options"
-          :key="option.value"
-          @click.stop="selectOption(option)"
-          class="px-5 py-2 text-text hover:bg-blue1/10 cursor-pointer transition-colors duration-150 last:border-b-0 border-b border-text/10"
-          :class="{
-            'bg-blue1/10': modelValue === option.value,
-            'hover:bg-blue1/20': modelValue === option.value,
-          }"
+          class="max-h-[280px] overflow-y-auto"
+          :class="{ 'overflow-y-scroll': options.length > 7 }"
         >
-          {{ option.label }}
+          <div
+            v-for="option in options"
+            :key="option.value"
+            @click.stop="selectOption(option)"
+            class="px-5 py-2 text-text hover:bg-blue1/10 cursor-pointer transition-colors duration-150 last:border-b-0 border-b border-text/10"
+            :class="{
+              'bg-blue1/10': modelValue === option.value,
+              'hover:bg-blue1/20': modelValue === option.value,
+            }"
+          >
+            {{ option.label }}
+          </div>
         </div>
       </div>
     </transition>

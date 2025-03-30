@@ -18,18 +18,18 @@
           class="bg-white rounded-2xl shadow-sm h-[calc(92vh-8rem)] flex flex-col"
         >
           <div class="sticky top-0 p-6 bg-white rounded-t-2xl z-10">
-            <div class="flex justify-between items-center">
-              <h2 class="text-lg font-satoshi-medium">Active Alerts</h2>
-              <div class="flex gap-2">
-                <div class="relative">
+            <div class="flex flex-col">
+              <h2 class="text-lg font-satoshi-medium mb-6">Active Alerts</h2>
+              <div class="flex gap-4 text-[13px]">
+                <div class="relative w-80 flex-1">
                   <Search
-                    class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400"
+                    class="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400"
                   />
                   <input
                     type="search"
                     v-model="searchQuery"
                     placeholder="Search alerts..."
-                    class="pl-10 px-4 py-2 rounded-full bg-graytint/40 border border-text/20 text-sm"
+                    class="pl-10 px-4 py-2 rounded-full bg-graytint/40 border border-text/20 focus:ring-1 focus:ring-blue1/50 focus:outline-none appearance-none"
                   />
                 </div>
                 <Dropdown
@@ -173,7 +173,11 @@
           <div>
             <h3 class="text-sm text-gray-500 mb-4">Unread Alerts</h3>
             <div v-if="unreadAlerts.length === 0" class="text-center py-4">
-              <p class="text-gray-500 text-sm">No unread alerts</p>
+              <p
+                class="text-gray-400 text-sm font-satoshi-italic tracking-wide"
+              >
+                No unread alerts
+              </p>
             </div>
             <div v-else class="space-y-2">
               <div
@@ -213,7 +217,11 @@
           <div>
             <h3 class="text-sm text-gray-500 mb-4">Follow-up Reminders</h3>
             <div v-if="followUpReminders.length === 0" class="text-center py-6">
-              <p class="text-gray-500 text-sm">No follow-ups scheduled</p>
+              <p
+                class="text-gray-400 text-sm font-satoshi-italic tracking-wide"
+              >
+                No follow-ups scheduled
+              </p>
             </div>
             <div v-else>
               <div class="relative overflow-hidden">
@@ -367,7 +375,7 @@ import {
 import VueApexCharts from "vue3-apexcharts";
 import Dropdown from "@/components/Dropdown.vue";
 import { useAlertsLogic } from "@/composables/alertsManagement";
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 
 export default {
   name: "Alerts",
@@ -386,14 +394,37 @@ export default {
   setup() {
     const currentUser = ref(null);
 
+    const updateDocumentTitle = () => {
+      const unreadCount = unreadAlerts.value.length;
+      if (unreadCount > 0) {
+        document.title = `${unreadCount} Unread Alert${
+          unreadCount > 1 ? "s" : ""
+        } - Clinic Management System`;
+      } else {
+        document.title = "Clinic Management System";
+      }
+    };
+
     onMounted(() => {
       const storedUser = localStorage.getItem("currentUser");
       currentUser.value = storedUser ? JSON.parse(storedUser) : {};
+      updateDocumentTitle();
     });
+
+    const alertsLogic = useAlertsLogic();
+    const unreadAlerts = alertsLogic.unreadAlerts;
+
+    watch(
+      () => unreadAlerts.value.length,
+      () => {
+        updateDocumentTitle();
+      }
+    );
 
     return {
       currentUser,
-      ...useAlertsLogic(),
+      ...alertsLogic,
+      updateDocumentTitle,
     };
   },
 };

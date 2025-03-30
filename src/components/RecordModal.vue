@@ -189,15 +189,15 @@
               </div>
 
               <textarea
-                v-model="formData.diagnosis"
-                placeholder="Diagnosis"
+                v-model="formData.treatment"
+                placeholder="Treatment Plan"
                 class="w-full px-4 py-2 rounded-lg bg-graytint min-h-[100px]"
                 required
               ></textarea>
 
               <textarea
-                v-model="formData.treatment"
-                placeholder="Treatment Plan"
+                v-model="formData.remarks"
+                placeholder="Remarks"
                 class="w-full px-4 py-2 rounded-lg bg-graytint min-h-[100px]"
                 required
               ></textarea>

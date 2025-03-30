@@ -53,7 +53,7 @@
         >
 
         <router-link
-          to="/Settings"
+          to="/settings"
           class="hidden sm:block"
           :class="{
             'text-blue1 font-satoshi-medium ': $route.path === '/Settings',
