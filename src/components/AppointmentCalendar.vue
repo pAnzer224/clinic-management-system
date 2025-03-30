@@ -76,7 +76,7 @@
           :class="[
             'p-2 text-center rounded-full transition-colors text-sm font-satoshi-medium',
             selectedTime === index
-              ? 'bg-gradient-to-r from-blue-400 to-blue-600 text-white'
+              ? 'bg-gradient-to-r from-blue1 to-blue2/90 text-white'
               : isTimeSlotBooked(selectedDay, slot)
               ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
               : 'bg-graytint hover:bg-gray-200 text-text',

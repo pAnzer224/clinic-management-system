@@ -495,9 +495,13 @@ export default {
       const selectedDate = new Date(date);
       selectedDate.setHours(0, 0, 0, 0);
 
-      // Ensure the selected date is not in the past
       if (selectedDate >= today) {
-        appointmentForm.value.date = date.toISOString().split("T")[0];
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const day = date.getDate();
+        appointmentForm.value.date = `${year}-${
+          month < 10 ? "0" + month : month
+        }-${day < 10 ? "0" + day : day}`;
         appointmentForm.value.time = time;
         showScheduleModal.value = true;
       } else {
