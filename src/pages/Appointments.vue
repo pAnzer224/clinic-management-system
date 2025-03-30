@@ -34,7 +34,7 @@
         <div class="px-6 pb-4">
           <div
             v-if="upcomingAppointments.length === 0"
-            class="text-center text-text/60 py-8"
+            class="text-center text-text/60 py-8 text-sm font-satoshi-italic tracking-wide"
           >
             No upcoming appointments
           </div>
@@ -112,7 +112,7 @@
         <div class="px-6 pb-6 overflow-y-auto">
           <div
             v-if="concludedAppointments.length === 0"
-            class="text-center text-text/60 py-8"
+            class="text-center text-text/60 py-8 text-sm font-satoshi-italic tracking-wide"
           >
             No concluded appointments
           </div>
@@ -196,6 +196,7 @@
               v-model="appointmentForm.date"
               type="date"
               required
+              :min="currentDateISOString"
               class="w-full px-4 py-2 rounded-lg bg-graytint"
             />
           </div>
@@ -304,6 +305,7 @@ export default {
     const showStudentModal = ref(false);
     const isEditing = ref(false);
     const selectedDate = ref(new Date().toISOString().split("T")[0]);
+    const currentDateISOString = ref(new Date().toISOString().split("T")[0]);
     const editingId = ref(null);
     const selectedStudent = ref("");
     const currentIndex = ref(0);
@@ -477,6 +479,8 @@ export default {
     }
 
     function showModal() {
+      // Set date to today by default when opening the modal
+      appointmentForm.value.date = currentDateISOString.value;
       showScheduleModal.value = true;
     }
 
@@ -485,9 +489,20 @@ export default {
     };
 
     const handleTimeSelected = ({ date, time }) => {
-      appointmentForm.value.date = date.toISOString().split("T")[0];
-      appointmentForm.value.time = time;
-      showScheduleModal.value = true;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const selectedDate = new Date(date);
+      selectedDate.setHours(0, 0, 0, 0);
+
+      // Ensure the selected date is not in the past
+      if (selectedDate >= today) {
+        appointmentForm.value.date = date.toISOString().split("T")[0];
+        appointmentForm.value.time = time;
+        showScheduleModal.value = true;
+      } else {
+        showNotification("Cannot schedule appointments for past dates");
+      }
     };
 
     async function handleStudentSubmit(data) {
@@ -526,6 +541,18 @@ export default {
 
     async function submitAppointment() {
       try {
+        // Validate that date is not in the past
+        const selectedDate = new Date(appointmentForm.value.date);
+        selectedDate.setHours(0, 0, 0, 0);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (selectedDate < today) {
+          showNotification("Cannot schedule appointments for past dates");
+          return;
+        }
+
         const appointmentData = {
           ...appointmentForm.value,
           updatedAt: serverTimestamp(),
@@ -675,6 +702,7 @@ export default {
       showToast,
       toastMessage,
       currentUser,
+      currentDateISOString,
       formatDate,
       showModal,
       submitAppointment,

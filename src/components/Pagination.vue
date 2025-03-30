@@ -4,8 +4,10 @@
     v-if="totalPages > 1"
   >
     <div class="flex items-center justify-center">
-      <!-- Go to page input -->
-      <div class="px-3 py-2 border-r border-gray-200 flex items-center">
+      <div
+        v-if="totalPages > 7"
+        class="px-3 py-2 border-r border-gray-200 flex items-center"
+      >
         <span class="text-xs text-blue1 mr-2 font-medium tracking-wide"
           >Go to page</span
         >
@@ -21,8 +23,11 @@
         </div>
       </div>
 
-      <!-- Pagination buttons -->
-      <div class="flex items-center px-2">
+      <!-- Pagination buttons - add extra padding when go-to is hidden -->
+      <div
+        class="flex items-center"
+        :class="totalPages > 5 ? 'px-2' : 'px-4 py-2'"
+      >
         <button
           @click="$emit('update:modelValue', 1)"
           class="mx-1 px-2 py-1 rounded-md text-xs hover:bg-blue1/10"
@@ -68,8 +73,11 @@
         </button>
       </div>
 
-      <!-- Nav controls -->
-      <div class="flex items-center pl-2 pr-2 border-l border-gray-200">
+      <!-- Nav controls - add left border only when needed -->
+      <div
+        class="flex items-center pl-2 pr-2"
+        :class="{ 'border-l border-gray-200': true }"
+      >
         <button
           @click="$emit('update:modelValue', currentPage - 1)"
           :disabled="currentPage === 1"

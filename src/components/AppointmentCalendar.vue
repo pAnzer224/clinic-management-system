@@ -30,19 +30,20 @@
           v-else
           @click="selectDay(day.date)"
           :disabled="day.isPast"
-          class="relative"
+          class="relative p-1"
         >
           <div
             :class="[
-              'p-2 text-center rounded-2xl transition-colors',
+              'p-2 text-center rounded-xl transition-colors w-full h-full',
               day.isSelected
-                ? 'bg-blue1 text-white'
+                ? 'bg-gradient-to-tr from-blue1 to-blue2/80 text-white ring-2 ring-blue1/50 ring-offset-2'
                 : 'hover:bg-gray-100 text-text',
               day.isPast ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
             ]"
           >
             {{ day.value }}
           </div>
+
           <div
             v-if="hasAppointment(day.date)"
             class="absolute bottom-1 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-blue1"
@@ -51,7 +52,15 @@
       </template>
     </div>
 
-    <div v-if="selectedDay" class="mt-4">
+    <!-- Selected date display -->
+    <div
+      v-if="selectedDay"
+      class="mt-4 mb-2 text-sm text-blue1 font-satoshi-medium"
+    >
+      Selected: {{ formatSelectedDate(selectedDay) }}
+    </div>
+
+    <div v-if="selectedDay" class="mt-2">
       <div class="flex items-center gap-2 mb-3">
         <ClockIcon class="size-4 text-gray-500" />
         <h4 class="text-md font-satoshi-medium text-text">
@@ -63,10 +72,13 @@
           v-for="(slot, index) in slots"
           :key="index"
           @click="selectTime(index)"
+          :disabled="isTimeSlotBooked(selectedDay, slot)"
           :class="[
             'p-2 text-center rounded-full transition-colors text-sm font-satoshi-medium',
             selectedTime === index
-              ? 'bg-blue1 text-white'
+              ? 'bg-gradient-to-r from-blue-400 to-blue-600 text-white'
+              : isTimeSlotBooked(selectedDay, slot)
+              ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
               : 'bg-graytint hover:bg-gray-200 text-text',
           ]"
         >
@@ -80,7 +92,7 @@
 <script>
 import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/vue/24/solid";
 import { CalendarIcon, ClockIcon } from "@heroicons/vue/24/outline";
-import { ref, watch, onMounted } from "vue";
+import { ref, watch, onMounted, computed } from "vue";
 import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "@/firebase-config";
 
@@ -106,14 +118,25 @@ export default {
     const slots = ref([]);
     let unsubscribeSettings = null;
 
-    const monthYear = ref(
-      currentMonth.value.toLocaleDateString("en-US", {
+    const monthYear = computed(() => {
+      return currentMonth.value.toLocaleDateString("en-US", {
         month: "long",
         year: "numeric",
-      })
-    );
+      });
+    });
 
     const calendarDays = ref([]);
+
+    // Format the selected date for display
+    const formatSelectedDate = (date) => {
+      if (!date) return "";
+      return date.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+    };
 
     // Load time slots from Firestore
     onMounted(() => {
@@ -152,18 +175,22 @@ export default {
       }
 
       const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
       for (let day = 1; day <= daysInMonth; day++) {
         const date = new Date(year, month, day);
+        const isSelected =
+          selectedDay.value &&
+          date.getDate() === selectedDay.value.getDate() &&
+          date.getMonth() === selectedDay.value.getMonth() &&
+          date.getFullYear() === selectedDay.value.getFullYear();
+
         days.push({
-          key: day,
+          key: `${year}-${month}-${day}`,
           value: day,
           date: date,
           isPast: date < today,
-          isSelected:
-            selectedDay.value &&
-            date.getDate() === selectedDay.value.getDate() &&
-            date.getMonth() === selectedDay.value.getMonth() &&
-            date.getFullYear() === selectedDay.value.getFullYear(),
+          isSelected: isSelected,
         });
       }
 
@@ -189,6 +216,7 @@ export default {
     const selectDay = (date) => {
       selectedDay.value = date;
       selectedTime.value = null;
+      updateCalendarDays(); // Update to reflect selection
       emit("day-selected", date);
     };
 
@@ -201,6 +229,8 @@ export default {
     };
 
     const hasAppointment = (date) => {
+      if (!date) return false;
+
       return props.appointments.some((appointment) => {
         const appointmentDate = new Date(appointment.date);
         return (
@@ -211,7 +241,28 @@ export default {
       });
     };
 
-    watch(() => props.appointments, updateCalendarDays);
+    const isTimeSlotBooked = (date, timeSlot) => {
+      if (!date) return false;
+
+      // Check current appointments for the selected date and time
+      return props.appointments.some((appointment) => {
+        const appointmentDate = new Date(appointment.date);
+        const selectedDate = new Date(date);
+
+        return (
+          appointmentDate.getDate() === selectedDate.getDate() &&
+          appointmentDate.getMonth() === selectedDate.getMonth() &&
+          appointmentDate.getFullYear() === selectedDate.getFullYear() &&
+          appointment.time === timeSlot
+        );
+      });
+    };
+
+    watch(() => props.appointments, updateCalendarDays, { deep: true });
+
+    watch(currentMonth, updateCalendarDays);
+
+    watch(selectedDay, updateCalendarDays);
 
     updateCalendarDays();
 
@@ -228,6 +279,8 @@ export default {
       selectDay,
       selectTime,
       hasAppointment,
+      isTimeSlotBooked,
+      formatSelectedDate,
     };
   },
 };
