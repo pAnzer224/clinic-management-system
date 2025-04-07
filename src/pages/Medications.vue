@@ -159,8 +159,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted } from "vue";
-import { useRoute } from "vue-router";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import {
   PencilIcon,
   TrashIcon,
@@ -220,7 +219,6 @@ export default {
     Dropdown,
   },
   setup() {
-    const route = useRoute();
     const medications = ref([]);
     const loading = ref(true);
     const error = ref(null);
@@ -236,6 +234,7 @@ export default {
     const formData = ref({ ...INITIAL_FORM });
     const showToast = ref(false);
     const toastMessage = ref("");
+    const isSubmitting = ref(false);
 
     const categoryFilterOptions = computed(() => {
       return [
@@ -274,6 +273,10 @@ export default {
     }
 
     function listenToChanges() {
+      if (unsubscribe.value) {
+        unsubscribe.value();
+      }
+
       const q = query(collection(db, "medications"), orderBy("name"));
       loading.value = true;
 
@@ -294,14 +297,14 @@ export default {
       );
     }
 
-    function stopListening() {
+    onMounted(() => {
+      listenToChanges();
+    });
+
+    onUnmounted(() => {
       if (unsubscribe.value) {
         unsubscribe.value();
       }
-    }
-
-    onMounted(() => {
-      listenToChanges();
     });
 
     function add() {
@@ -329,7 +332,7 @@ export default {
       if (confirm("Are you sure you want to delete this medication?")) {
         try {
           await deleteItem(medication.id);
-          logActivity({
+          await logActivity({
             type: "medication",
             action: "delete",
             title: "Medication Removed",
@@ -351,10 +354,18 @@ export default {
     }
 
     async function submitForm(data) {
+      if (isSubmitting.value) return;
+
+      isSubmitting.value = true;
       try {
         const submitData = {
           ...data,
-          status: determineStatus(data.currentStock, data.minimumStock),
+          currentStock: parseInt(data.currentStock) || 0,
+          minimumStock: parseInt(data.minimumStock) || 0,
+          status: determineStatus(
+            parseInt(data.currentStock) || 0,
+            parseInt(data.minimumStock) || 0
+          ),
           updatedAt: serverTimestamp(),
         };
 
@@ -385,6 +396,8 @@ export default {
           timestamp: serverTimestamp(),
         });
 
+        showModal.value = false;
+
         showNotification(
           `Medication ${data.name} has been ${
             isEditing.value
@@ -397,6 +410,8 @@ export default {
       } catch (error) {
         console.error("Error saving medication:", error);
         showNotification("Error saving medication information");
+      } finally {
+        isSubmitting.value = false;
       }
     }
 
@@ -417,13 +432,13 @@ export default {
       CATEGORIES,
       showToast,
       toastMessage,
+      isSubmitting,
       add,
       editMedication,
       adjustStock,
       deleteMedication,
       submitForm,
       listenToChanges,
-      stopListening,
     };
   },
 };

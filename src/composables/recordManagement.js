@@ -10,6 +10,8 @@ import {
   where,
   onSnapshot,
   serverTimestamp,
+  getDoc,
+  updateDoc,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import { useCRUD } from "@/utils/firebaseCRUD";
@@ -81,6 +83,7 @@ export function useRecordsList() {
   const healthAlerts = ref([]);
   const loading = ref(true);
   const appointments = ref([]);
+  const isSubmitting = ref(false);
 
   let recordsUnsubscribe = null;
   let healthAlertsUnsubscribe = null;
@@ -96,6 +99,10 @@ export function useRecordsList() {
   }
 
   function setupSnapshotListeners() {
+    // Clean up existing listeners if any
+    if (recordsUnsubscribe) recordsUnsubscribe();
+    if (healthAlertsUnsubscribe) healthAlertsUnsubscribe();
+
     const recordsQuery = query(
       collection(db, "medicalRecords"),
       orderBy("date", "desc")
@@ -124,8 +131,12 @@ export function useRecordsList() {
   }
 
   async function fetchStudents() {
-    const querySnapshot = await getDocs(collection(db, "students"));
-    students.value = querySnapshot.docs.map((doc) => ({ ...doc.data() }));
+    try {
+      const querySnapshot = await getDocs(collection(db, "students"));
+      students.value = querySnapshot.docs.map((doc) => ({ ...doc.data() }));
+    } catch (error) {
+      console.error("Error fetching students:", error);
+    }
   }
 
   const filteredRecords = computed(() => {
@@ -133,9 +144,9 @@ export function useRecordsList() {
       const matchesSearch =
         !searchQuery.value ||
         record.studentName
-          .toLowerCase()
+          ?.toLowerCase()
           .includes(searchQuery.value.toLowerCase()) ||
-        record.studentId.includes(searchQuery.value);
+        record.studentId?.includes(searchQuery.value);
 
       const matchesDate =
         !filterDate.value || filterDateRange(record.date, filterDate.value);
@@ -145,6 +156,8 @@ export function useRecordsList() {
   });
 
   function filterDateRange(dateStr, range) {
+    if (!dateStr) return false;
+
     const recordDate = new Date(dateStr);
     const today = new Date();
 
@@ -183,13 +196,21 @@ export function useRecordsList() {
 
   function showAddRecord() {
     isEditing.value = false;
-    formData.value = { ...INITIAL_FORM };
+    formData.value = {
+      ...INITIAL_FORM,
+      date: new Date().toISOString().split("T")[0],
+      symptoms: [],
+    };
     showModal.value = true;
   }
 
   function editRecord(record) {
     isEditing.value = true;
-    formData.value = { ...record };
+    // Make sure we have a proper symptoms array
+    formData.value = {
+      ...record,
+      symptoms: Array.isArray(record.symptoms) ? [...record.symptoms] : [],
+    };
     showModal.value = true;
   }
 
@@ -204,6 +225,9 @@ export function useRecordsList() {
   }
 
   async function submitForm(data) {
+    if (isSubmitting.value) return;
+
+    isSubmitting.value = true;
     try {
       const docId = data.id || `record_${Date.now()}`;
 
@@ -214,10 +238,10 @@ export function useRecordsList() {
       });
 
       showModal.value = false;
-      // Add a success notification here if needed
     } catch (error) {
       console.error("Error saving record:", error);
-      // Handle the error appropriately
+    } finally {
+      isSubmitting.value = false;
     }
   }
 
@@ -251,12 +275,12 @@ export function useRecordsList() {
     loading,
     dateFilterOptions: DATE_FILTER_OPTIONS,
     appointments,
+    isSubmitting,
   };
 }
 
 export function useRecordModal(props, { emit }) {
   const { addItem, updateItem, getItem } = useCRUD("medicalRecords");
-  const { updateItem: updateMedicationItem } = useCRUD("medications");
   const formData = ref({});
   const newSymptom = ref("");
   const newMedication = ref({
@@ -272,6 +296,9 @@ export function useRecordModal(props, { emit }) {
   const showMedicationsModal = ref(false);
   const showStudentModal = ref(false);
   const noMedicationWarning = ref(false);
+  const isSubmitting = ref(false);
+  const studentsLoading = ref(false);
+
   const medicationFormData = ref({
     name: "",
     category: "",
@@ -284,6 +311,7 @@ export function useRecordModal(props, { emit }) {
     location: "",
     notes: "",
   });
+
   const studentFormData = ref({
     studentId: "",
     lastName: "",
@@ -303,6 +331,7 @@ export function useRecordModal(props, { emit }) {
     profileImage: "",
     labTest: "",
   });
+
   const currentUser = ref(
     JSON.parse(localStorage.getItem("currentUser")) || {}
   );
@@ -333,8 +362,10 @@ export function useRecordModal(props, { emit }) {
     (newVal) => {
       formData.value = {
         ...newVal,
-        symptoms: newVal.symptoms || [],
-        medications: newVal.medications || [],
+        symptoms: Array.isArray(newVal.symptoms) ? [...newVal.symptoms] : [],
+        medications: Array.isArray(newVal.medications)
+          ? [...newVal.medications]
+          : [],
       };
       if (props.isEditing && newVal.studentId) {
         fetchStudentData(newVal.studentId);
@@ -358,6 +389,7 @@ export function useRecordModal(props, { emit }) {
 
   async function fetchStudentData(studentId) {
     try {
+      studentsLoading.value = true;
       const studentsRef = collection(db, "students");
       const studentQuery = query(
         studentsRef,
@@ -369,6 +401,8 @@ export function useRecordModal(props, { emit }) {
       }
     } catch (error) {
       console.error("Error fetching student data:", error);
+    } finally {
+      studentsLoading.value = false;
     }
   }
 
@@ -385,7 +419,9 @@ export function useRecordModal(props, { emit }) {
 
   function addSymptom() {
     if (newSymptom.value.trim()) {
-      if (!formData.value.symptoms) formData.value.symptoms = [];
+      if (!Array.isArray(formData.value.symptoms)) {
+        formData.value.symptoms = [];
+      }
       formData.value.symptoms.push(newSymptom.value.trim());
       newSymptom.value = "";
     }
@@ -413,7 +449,9 @@ export function useRecordModal(props, { emit }) {
 
   function addMedication() {
     if (newMedication.value.medicationId && newMedication.value.dosage) {
-      if (!formData.value.medications) formData.value.medications = [];
+      if (!Array.isArray(formData.value.medications)) {
+        formData.value.medications = [];
+      }
 
       const selectedMed = medications.value.find(
         (m) => m.id === newMedication.value.medicationId
@@ -538,50 +576,70 @@ export function useRecordModal(props, { emit }) {
   }
 
   async function submitForm() {
-    // Validate at least one medication is added
-    if (
-      !formData.value.medications ||
-      formData.value.medications.length === 0
-    ) {
-      noMedicationWarning.value = true;
-      return;
-    }
+    if (isSubmitting.value) return;
 
-    if (!formData.value.date) {
-      formData.value.date = new Date().toISOString().split("T")[0];
-    }
-
-    if (!formData.value.id) {
-      formData.value.id = `record_${Date.now()}`;
-    }
+    isSubmitting.value = true;
 
     try {
+      // Validate at least one medication is added
+      if (
+        !Array.isArray(formData.value.medications) ||
+        formData.value.medications.length === 0
+      ) {
+        noMedicationWarning.value = true;
+        isSubmitting.value = false;
+        return;
+      }
+
+      if (!formData.value.date) {
+        formData.value.date = new Date().toISOString().split("T")[0];
+      }
+
+      if (!formData.value.id) {
+        formData.value.id = `record_${Date.now()}`;
+      }
+
+      // Make sure symptoms is an array
+      if (!Array.isArray(formData.value.symptoms)) {
+        formData.value.symptoms = [];
+      }
+
       // Update medication inventory
       if (formData.value.medications && formData.value.medications.length > 0) {
         for (const med of formData.value.medications) {
           if (med.medicationId) {
-            // Get the current medication data
-            const medicationDoc = await getItem(
-              "medications",
-              med.medicationId
-            );
-            if (medicationDoc) {
-              // Get the quantity to deduct (default to 1 if not specified)
-              const quantityToDeduct = med.quantity || 1;
+            try {
+              // Get the current medication data
+              const medicationRef = doc(db, "medications", med.medicationId);
+              const medicationSnapshot = await getDoc(medicationRef);
 
-              // Ensure we don't go below zero
-              const newStock = Math.max(
-                0,
-                medicationDoc.currentStock - quantityToDeduct
+              if (medicationSnapshot.exists()) {
+                const medicationData = medicationSnapshot.data();
+
+                // Get the quantity to deduct (default to 1 if not specified)
+                const quantityToDeduct = parseInt(med.quantity) || 1;
+
+                // Ensure we don't go below zero
+                const newStock = Math.max(
+                  0,
+                  medicationData.currentStock - quantityToDeduct
+                );
+
+                // Update the medication stock directly
+                await updateDoc(medicationRef, {
+                  currentStock: newStock,
+                  status: determineStatus(
+                    newStock,
+                    medicationData.minimumStock
+                  ),
+                  updatedAt: serverTimestamp(),
+                });
+              }
+            } catch (error) {
+              console.error(
+                `Error updating medication ${med.medicationId}:`,
+                error
               );
-
-              // Update the medication stock
-              await updateMedicationItem({
-                ...medicationDoc,
-                id: med.medicationId,
-                currentStock: newStock,
-                status: determineStatus(newStock, medicationDoc.minimumStock),
-              });
             }
           }
         }
@@ -610,10 +668,13 @@ export function useRecordModal(props, { emit }) {
           performedBy: currentUser.value,
         });
       }
+
       emit("submit", formData.value);
       closeModal();
     } catch (error) {
       console.error("Error submitting record:", error);
+    } finally {
+      isSubmitting.value = false;
     }
   }
 
@@ -632,6 +693,8 @@ export function useRecordModal(props, { emit }) {
     studentOptions,
     statusOptions: STATUS_OPTIONS,
     noMedicationWarning,
+    isSubmitting,
+    studentsLoading,
     addSymptom,
     removeSymptom,
     handleMedicationSelect,

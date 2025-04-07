@@ -49,8 +49,38 @@
             <table class="w-full table-fixed">
               <thead>
                 <tr class="text-left text-text/60">
-                  <th class="pb-4 w-1/5">Student ID</th>
-                  <th class="pb-4 w-1/4">Name</th>
+                  <th class="pb-4 w-1/5">
+                    <div
+                      class="flex items-center cursor-pointer"
+                      @click="toggleSort('studentId')"
+                    >
+                      Student ID
+                      <ChevronDownIcon
+                        class="h-4 w-4 ml-1"
+                        :class="{
+                          'rotate-180':
+                            sortDirection === 'asc' &&
+                            sortColumn === 'studentId',
+                        }"
+                      />
+                    </div>
+                  </th>
+                  <th class="pb-4 w-1/4">
+                    <div
+                      class="flex items-center cursor-pointer"
+                      @click="toggleSort('lastName')"
+                    >
+                      Name
+                      <ChevronDownIcon
+                        class="h-4 w-4 ml-1"
+                        :class="{
+                          'rotate-180':
+                            sortDirection === 'asc' &&
+                            sortColumn === 'lastName',
+                        }"
+                      />
+                    </div>
+                  </th>
                   <th class="pb-4 w-1/6">Course</th>
                   <th class="pb-4 w-1/8">Year</th>
                   <th class="pb-4 w-1/8">Acad. Year</th>
@@ -159,6 +189,7 @@ import {
   EyeIcon,
   TrashIcon,
   MagnifyingGlassIcon,
+  ChevronDownIcon,
 } from "@heroicons/vue/24/outline";
 import StudentModal from "@/components/StudentModal.vue";
 import { IntersectingCirclesSpinner } from "epic-spinners";
@@ -173,6 +204,7 @@ export default {
     EyeIcon,
     TrashIcon,
     MagnifyingGlassIcon,
+    ChevronDownIcon,
     IntersectingCirclesSpinner,
     Dropdown,
     Pagination,
@@ -208,10 +240,33 @@ export default {
     const currentPage = ref(1);
     const itemsPerPage = ref(10);
 
+    // Add sorting
+    const sortColumn = ref("studentId");
+    const sortDirection = ref("desc");
+
+    // Sort logic
+    const toggleSort = (column) => {
+      if (sortColumn.value === column) {
+        sortDirection.value = sortDirection.value === "desc" ? "asc" : "desc";
+      } else {
+        sortColumn.value = column;
+        sortDirection.value = "desc";
+      }
+    };
+
+    const sortedStudents = computed(() => {
+      return [...filteredStudents.value].sort((a, b) => {
+        const modifier = sortDirection.value === "asc" ? 1 : -1;
+        if (a[sortColumn.value] < b[sortColumn.value]) return -1 * modifier;
+        if (a[sortColumn.value] > b[sortColumn.value]) return 1 * modifier;
+        return 0;
+      });
+    });
+
     const paginatedStudents = computed(() => {
       const startIndex = (currentPage.value - 1) * itemsPerPage.value;
       const endIndex = startIndex + itemsPerPage.value;
-      return filteredStudents.value.slice(startIndex, endIndex);
+      return sortedStudents.value.slice(startIndex, endIndex);
     });
 
     const totalStudentPages = computed(() => {
@@ -237,6 +292,7 @@ export default {
       isEditing,
       formData,
       filteredStudents,
+      sortedStudents,
       paginatedStudents,
       yearFilterOptions,
       schoolYearFilterOptions,
@@ -247,6 +303,9 @@ export default {
       studentMedicalRecords,
       currentPage,
       totalStudentPages,
+      sortColumn,
+      sortDirection,
+      toggleSort,
       add,
       editStudent,
       deleteStudent,

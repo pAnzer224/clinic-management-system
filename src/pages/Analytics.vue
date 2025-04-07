@@ -530,14 +530,10 @@ export default {
     async function fetchAppointmentData() {
       loadingAppointmentChart.value = true;
       try {
-        const today = new Date();
-        const weekStart = new Date(today);
-        weekStart.setDate(today.getDate() - today.getDay());
-
+        // Get all appointments without date filtering for simplicity
         const appointmentsQuery = query(
           collection(db, "appointments"),
-          where("date", ">=", weekStart),
-          orderBy("date"),
+          orderBy("date", "desc"),
           limit(100) // Limit for better performance
         );
 
@@ -553,20 +549,30 @@ export default {
         // Process appointments
         snapshot.docs.forEach((doc) => {
           const appointment = doc.data();
-          const appointmentDate = appointment.date.toDate
-            ? appointment.date.toDate()
-            : new Date(appointment.date);
+          // Safely handle date conversion
+          let appointmentDate;
+          if (appointment.date instanceof Timestamp) {
+            appointmentDate = appointment.date.toDate();
+          } else if (
+            appointment.date &&
+            typeof appointment.date.toDate === "function"
+          ) {
+            appointmentDate = appointment.date.toDate();
+          } else {
+            appointmentDate = new Date(appointment.date);
+          }
+
+          // Get day of week (0-6)
           const dayIndex = appointmentDate.getDay();
 
-          switch (appointment.type?.toLowerCase()) {
-            case "emergency":
-              appointmentsByType.emergency[dayIndex]++;
-              break;
-            case "follow-up":
-              appointmentsByType.followup[dayIndex]++;
-              break;
-            default:
-              appointmentsByType.regular[dayIndex]++;
+          // Count by type
+          const type = (appointment.type || "regular").toLowerCase();
+          if (type === "emergency") {
+            appointmentsByType.emergency[dayIndex]++;
+          } else if (type === "follow-up" || type === "followup") {
+            appointmentsByType.followup[dayIndex]++;
+          } else {
+            appointmentsByType.regular[dayIndex]++;
           }
         });
 
@@ -661,11 +667,10 @@ export default {
           tomorrow.setDate(tomorrow.getDate() + 1);
           q = query(
             collectionRef,
-            where("date", ">=", today),
-            where("date", "<", tomorrow)
+            where("createdAt", ">=", today),
+            where("createdAt", "<", tomorrow)
           );
         }
-
         const unsubscribe = onSnapshot(q, (snapshot) => {
           stats.value[index].value = snapshot.size;
 

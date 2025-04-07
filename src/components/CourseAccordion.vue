@@ -184,7 +184,7 @@ export default {
     });
 
     const openIndex = ref(null);
-    const isAllOpen = ref(false);
+    const isAllOpen = ref(true);
 
     const toggleAll = () => {
       isAllOpen.value = !isAllOpen.value;

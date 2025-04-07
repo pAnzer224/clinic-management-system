@@ -20,40 +20,6 @@
       </router-link>
     </div>
 
-    <!-- Quick Action Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-      <router-link
-        v-for="action in quickActions"
-        :key="action.title"
-        :to="action.route"
-        class="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all duration-300 cursor-pointer border border-gray-100 overflow-hidden relative group"
-      >
-        <!-- Background gradient with animation -->
-        <div
-          class="absolute inset-0 bg-gradient-to-tr from-blue1/5 to-blue3/10 opacity-50 group-hover:opacity-100 group-hover:bg-gradient-to-tr group-hover:from-blue1/40 group-hover:to-blue3/30 transition-opacity duration-300"
-        ></div>
-
-        <!-- Card content -->
-        <div class="relative z-10 p-6">
-          <div class="flex flex-col items-start">
-            <div class="mb-4 bg-blue1/10 p-3 rounded-full">
-              <component :is="action.icon" class="h-6 w-6 text-blue1" />
-            </div>
-            <h3 class="text-lg font-satoshi-bold text-text mb-1">
-              {{ action.title }}
-            </h3>
-            <p class="text-sm text-gray-600 mb-4">{{ action.description }}</p>
-            <div
-              class="text-blue1 text-sm font-medium flex items-center mt-auto"
-            >
-              View
-              <ArrowRightIcon class="h-4 w-4 ml-1" />
-            </div>
-          </div>
-        </div>
-      </router-link>
-    </div>
-
     <!-- Course Information -->
     <CourseAccordion :selectedAcademicYear="selectedAcademicYear" />
 
@@ -174,35 +140,6 @@ export default {
     );
     const selectedAcademicYear = ref("All");
 
-    //  quick action cards
-    const quickActions = ref([
-      {
-        title: "Student Management",
-        description:
-          "Add, view, update, and manage student profiles and information",
-        icon: UsersIcon,
-        route: "/students",
-      },
-      {
-        title: "Appointments",
-        description: "Schedule and manage student healthcare appointments",
-        icon: CalendarIcon,
-        route: "/appointments",
-      },
-      {
-        title: "Medication Inventory",
-        description: "Monitor and manage medication stock and prescriptions",
-        icon: PillIcon,
-        route: "/medications",
-      },
-      {
-        title: "Medical Records",
-        description: "Access and update student health history and documents",
-        icon: ClipboardIcon,
-        route: "/records",
-      },
-    ]);
-
     const recentActivities = ref([]);
     const sortedActivities = computed(() => {
       return [...recentActivities.value].sort((a, b) => {
@@ -290,7 +227,6 @@ export default {
     });
 
     return {
-      quickActions,
       recentActivities,
       formatTimeAgo,
       getActivityIcon,

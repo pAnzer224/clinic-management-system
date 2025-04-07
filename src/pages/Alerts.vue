@@ -47,13 +47,80 @@
             </div>
 
             <div
-              v-else-if="filteredAlerts.length === 0"
+              v-else-if="
+                filteredAlerts.length === 0 && systemAlerts.length === 0
+              "
               class="text-center py-8"
             >
               <p class="text-gray-500">No active alerts found</p>
             </div>
 
             <div v-else class="space-y-4">
+              <!-- System Alerts -->
+              <div v-if="systemAlerts.length > 0" class="mb-6">
+                <div
+                  v-for="alert in systemAlerts"
+                  :key="alert.id"
+                  class="p-4 rounded-xl border mb-3"
+                  :class="{
+                    'border-red-200 bg-red-50': alert.priority === 'High',
+                    'border-yellow-200 bg-yellow-50':
+                      alert.priority === 'Medium',
+                    'border-blue-200 bg-blue-50': alert.priority === 'Low',
+                  }"
+                >
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <div class="flex items-center gap-2">
+                        <h3 class="font-satoshi-medium">{{ alert.title }}</h3>
+                        <span
+                          class="px-2 py-1 rounded-full text-xs"
+                          :class="{
+                            'bg-red-200 text-red-800':
+                              alert.priority === 'High',
+                            'bg-yellow-200 text-yellow-800':
+                              alert.priority === 'Medium',
+                            'bg-blue-200 text-blue-800':
+                              alert.priority === 'Low',
+                          }"
+                        >
+                          {{ alert.priority }}
+                        </span>
+                        <span
+                          class="px-2 py-1 rounded-full text-xs bg-blue-200 text-blue-800"
+                        >
+                          System
+                        </span>
+                      </div>
+                      <p class="text-sm text-gray-600 mt-1">
+                        {{ alert.description }}
+                      </p>
+                      <div class="flex gap-4 mt-2 text-sm text-gray-500">
+                        <span>{{ formatDate(alert.date) }}</span>
+                      </div>
+                    </div>
+                    <div class="flex">
+                      <router-link
+                        to="/medications"
+                        class="text-blue-600 hover:text-blue-800 mr-2"
+                        title="View medications"
+                      >
+                        <ExternalLink class="size-4" />
+                      </router-link>
+                      <button
+                        @click="resolveSystemAlert(alert)"
+                        class="text-green-600 hover:text-green-800"
+                        title="Mark as resolved"
+                      >
+                        <CheckCircle class="size-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div class="border-b border-gray-200 mb-4"></div>
+              </div>
+
+              <!-- Custom Alerts -->
               <div
                 v-for="alert in filteredAlerts"
                 :key="alert.id"
@@ -276,18 +343,6 @@
               </div>
             </div>
           </div>
-
-          <!-- Patient Count by Diagnosis -->
-          <div>
-            <h3 class="text-sm text-gray-500 mb-4">Common Diagnoses</h3>
-            <div class="h-60">
-              <apexchart
-                type="bar"
-                :options="diagnosisChartOptions"
-                :series="diagnosisChartSeries"
-              />
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -371,8 +426,8 @@ import {
   ChevronLeft,
   ChevronRight,
   CheckCircle,
+  ExternalLink,
 } from "lucide-vue-next";
-import VueApexCharts from "vue3-apexcharts";
 import Dropdown from "@/components/Dropdown.vue";
 import { useAlertsLogic } from "@/composables/alertsManagement";
 import { ref, onMounted, watch } from "vue";
@@ -380,7 +435,6 @@ import { ref, onMounted, watch } from "vue";
 export default {
   name: "Alerts",
   components: {
-    apexchart: VueApexCharts,
     Search,
     Pencil,
     Trash2,
@@ -390,6 +444,7 @@ export default {
     ChevronLeft,
     ChevronRight,
     CheckCircle,
+    ExternalLink,
   },
   setup() {
     const currentUser = ref(null);
@@ -413,9 +468,10 @@ export default {
 
     const alertsLogic = useAlertsLogic();
     const unreadAlerts = alertsLogic.unreadAlerts;
+    const systemAlerts = alertsLogic.systemAlerts;
 
     watch(
-      () => unreadAlerts.value.length,
+      () => [...unreadAlerts.value, ...systemAlerts.value].length,
       () => {
         updateDocumentTitle();
       }
@@ -425,6 +481,7 @@ export default {
       currentUser,
       ...alertsLogic,
       updateDocumentTitle,
+      systemAlerts,
     };
   },
 };

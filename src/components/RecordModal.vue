@@ -169,6 +169,13 @@
                     placeholder="Symptoms"
                     class="flex-1 px-4 py-2 rounded-lg bg-graytint"
                   />
+                  <button
+                    type="button"
+                    @click="addSymptom"
+                    class="px-4 py-2 bg-blue1 text-white rounded-full"
+                  >
+                    Add
+                  </button>
                 </div>
                 <div class="flex flex-wrap gap-2">
                   <div
@@ -205,49 +212,65 @@
               <!-- Medications -->
               <div class="space-y-2">
                 <h4 class="font-medium text-gray-700">Medications</h4>
-                <div class="flex gap-2">
-                  <Dropdown
-                    v-model="medicationForm.medicationId"
-                    :options="medicationOptions"
-                    placeholder="Select Medicine"
-                    class="flex-1"
-                    @update:modelValue="handleMedicationSelect"
-                  />
-                  <input
-                    v-model="medicationForm.dosage"
-                    placeholder="Dosage"
-                    class="w-32 px-4 py-2 rounded-lg bg-graytint"
-                  />
-                  <button
-                    type="button"
-                    @click="addMedication"
-                    class="px-4 py-2 bg-blue1 text-white rounded-full"
-                    :disabled="
-                      !medicationForm.medicationId || !medicationForm.dosage
-                    "
-                  >
-                    Add
-                  </button>
+                <div class="flex flex-col gap-2">
+                  <div class="flex gap-2">
+                    <Dropdown
+                      v-model="medicationForm.medicationId"
+                      :options="medicationOptions"
+                      placeholder="Select Medicine"
+                      class="flex-1"
+                      @update:modelValue="handleMedicationSelect"
+                    />
+                    <input
+                      v-model="medicationForm.dosage"
+                      placeholder="Dosage"
+                      class="w-32 px-4 py-2 rounded-lg bg-graytint"
+                    />
+                    <input
+                      v-model="medicationForm.quantity"
+                      type="number"
+                      min="1"
+                      placeholder="Qty"
+                      class="w-20 px-4 py-2 rounded-lg bg-graytint"
+                    />
+                  </div>
+                  <div class="flex justify-end">
+                    <button
+                      type="button"
+                      @click="addMedication"
+                      class="px-4 py-2 bg-blue1 text-white rounded-full"
+                      :disabled="
+                        !medicationForm.medicationId || !medicationForm.dosage
+                      "
+                    >
+                      Add
+                    </button>
+                  </div>
                 </div>
 
                 <!-- Display added medications -->
-                <div class="space-y-2 mt-2">
+                <div class="space-y-2 mt-2 max-w-full">
                   <div
                     v-for="(med, index) in formData.medications"
                     :key="index"
                     class="flex items-center justify-between bg-blue1/10 px-4 py-2 rounded-lg"
                   >
-                    <div>
+                    <div class="flex-1 overflow-hidden">
                       <span class="font-medium">{{ med.name }}</span>
                       <span> - {{ med.dosage }}</span>
                       <span class="text-sm text-gray-600 ml-2"
                         >({{ med.strength }})</span
                       >
+                      <span
+                        v-if="med.quantity > 1"
+                        class="text-sm text-blue-600 ml-2"
+                        >x{{ med.quantity }}</span
+                      >
                     </div>
                     <button
                       type="button"
                       @click="removeMedication(index)"
-                      class="text-red-500"
+                      class="text-red-500 ml-2 flex-shrink-0"
                     >
                       ×
                     </button>
@@ -262,7 +285,9 @@
                   >
                     + Add new medication to inventory
                   </button>
-                  <!-- Removed the warning message for medications -->
+                  <div v-if="noMedicationWarning" class="text-sm text-red-500">
+                    Please add at least one medication
+                  </div>
                 </div>
               </div>
 
@@ -301,7 +326,13 @@
               </button>
               <button
                 type="submit"
-                class="px-6 py-2 bg-blue1 text-white rounded-full hover:bg-blue-700 mb-8"
+                :class="[
+                  'px-6 py-2 rounded-full mb-8',
+                  isSubmitting
+                    ? 'bg-blue1/70 text-white/90'
+                    : 'bg-blue1 text-white hover:bg-blue-700',
+                ]"
+                :disabled="isSubmitting"
               >
                 {{ isEditing ? "Update" : "Save" }} Record
               </button>
@@ -385,16 +416,17 @@ export default {
 
     const addMedication = () => {
       if (medicationForm.medicationId && medicationForm.dosage) {
-        recordModalSetup.formData.value.medications = [
-          ...(recordModalSetup.formData.value.medications || []),
-          {
-            medicationId: medicationForm.medicationId,
-            name: medicationForm.name,
-            strength: medicationForm.strength,
-            dosage: medicationForm.dosage,
-            quantity: medicationForm.quantity || 1,
-          },
-        ];
+        if (!Array.isArray(recordModalSetup.formData.value.medications)) {
+          recordModalSetup.formData.value.medications = [];
+        }
+
+        recordModalSetup.formData.value.medications.push({
+          medicationId: medicationForm.medicationId,
+          name: medicationForm.name,
+          strength: medicationForm.strength,
+          dosage: medicationForm.dosage,
+          quantity: parseInt(medicationForm.quantity) || 1,
+        });
 
         // Only clear the medication form fields
         medicationForm.medicationId = "";
@@ -418,46 +450,51 @@ export default {
       }
     };
 
+    const addSymptom = () => {
+      recordModalSetup.addSymptom();
+    };
+
+    const removeSymptom = (index) => {
+      recordModalSetup.removeSymptom(index);
+    };
+
     const submitForm = async () => {
+      if (recordModalSetup.isSubmitting.value) return;
+
       try {
         recordModalSetup.noMedicationWarning.value = false;
 
-        if (recordModalSetup.formData.value.medications) {
-          for (const med of recordModalSetup.formData.value.medications) {
-            const medicationRef = doc(db, "medications", med.medicationId);
-            const medicationDoc = await getDoc(medicationRef);
-
-            if (medicationDoc.exists()) {
-              const currentStock = medicationDoc.data().currentStock;
-              const quantity = med.quantity || 1;
-              const newStock = Math.max(0, currentStock - quantity);
-
-              await updateDoc(medicationRef, {
-                currentStock: newStock,
-                status:
-                  newStock <= 0
-                    ? "Out of Stock"
-                    : newStock <= medicationDoc.data().minimumStock
-                    ? "Low Stock"
-                    : "In Stock",
-              });
-            }
-          }
+        // Make sure symptoms is an array
+        if (!Array.isArray(recordModalSetup.formData.value.symptoms)) {
+          recordModalSetup.formData.value.symptoms = [];
         }
 
-        context.emit("submit", recordModalSetup.formData.value);
+        // Check if medications are added
+        if (
+          !Array.isArray(recordModalSetup.formData.value.medications) ||
+          recordModalSetup.formData.value.medications.length === 0
+        ) {
+          recordModalSetup.noMedicationWarning.value = true;
+          return;
+        }
 
-        context.emit("update:modelValue", false);
+        await recordModalSetup.submitForm();
+
+        // Close the modal immediately after submission
+        recordModalSetup.closeModal();
       } catch (error) {
         console.error("Error in form submission:", error);
       }
     };
+
     return {
       ...recordModalSetup,
       medicationForm,
       selectSearchResult,
       addMedication,
       handleMedicationSelect,
+      addSymptom,
+      removeSymptom,
       submitForm,
     };
   },

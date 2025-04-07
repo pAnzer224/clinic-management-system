@@ -7,6 +7,8 @@ import {
   serverTimestamp,
   updateDoc,
   doc,
+  deleteDoc,
+  onSnapshot,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import { useCRUD } from "@/utils/firebaseCRUD";
@@ -26,8 +28,8 @@ export function useAlertsLogic() {
   // Reminders and records
   const medicalRecords = ref([]);
   const followUpReminders = ref([]);
-  const diagnosisStats = ref([]);
   const currentReminderIndex = ref(0);
+  const systemAlerts = ref([]);
 
   const searchQuery = ref("");
   const filterPriority = ref("");
@@ -89,6 +91,19 @@ export function useAlertsLogic() {
       .slice(0, 5); // Show only top 5 unread alerts
   });
 
+  // Get all unread alerts including system alerts for notification count
+  const allUnreadAlerts = computed(() => {
+    const unreadCustomAlerts = alerts.value.filter(
+      (alert) =>
+        !alert.isRead &&
+        (alert.priority === "High" || alert.priority === "Medium")
+    );
+    const highPrioritySystemAlerts = systemAlerts.value.filter(
+      (alert) => alert.priority === "High" || alert.priority === "Medium"
+    );
+    return [...unreadCustomAlerts, ...highPrioritySystemAlerts];
+  });
+
   const priorityStats = computed(() => {
     const total = alerts.value.length;
     const counts = {
@@ -115,83 +130,6 @@ export function useAlertsLogic() {
       currentReminderIndex.value--;
     }
   };
-
-  const diagnosisChartOptions = {
-    chart: {
-      type: "bar",
-      toolbar: { show: false },
-    },
-    plotOptions: {
-      bar: {
-        horizontal: true,
-        borderRadius: 4,
-      },
-    },
-    dataLabels: {
-      enabled: false,
-    },
-    xaxis: {
-      categories: [],
-    },
-    colors: ["#3B82F6"],
-  };
-
-  const diagnosisChartSeries = ref([
-    {
-      name: "Patients",
-      data: [],
-    },
-  ]);
-
-  // Monthly trend chart
-  const chartOptions = {
-    chart: {
-      type: "line",
-      toolbar: { show: false },
-      height: 160,
-    },
-    stroke: {
-      curve: "smooth",
-      width: 2,
-    },
-    xaxis: {
-      categories: [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ],
-    },
-    yaxis: {
-      min: 0,
-    },
-    colors: ["#3B82F6"],
-    tooltip: {
-      theme: "light",
-    },
-    markers: {
-      size: 4,
-      strokeWidth: 0,
-    },
-    grid: {
-      borderColor: "#f1f1f1",
-    },
-  };
-
-  const chartSeries = ref([
-    {
-      name: "Alerts",
-      data: [3, 5, 7, 4, 6, 9, 8, 10, 12, 8, 6, 4],
-    },
-  ]);
 
   function formatDate(date) {
     if (!date) return "";
@@ -230,6 +168,24 @@ export function useAlertsLogic() {
     }
   }
 
+  async function resolveSystemAlert(alert) {
+    try {
+      // Remove from the system alerts array
+      systemAlerts.value = systemAlerts.value.filter((a) => a.id !== alert.id);
+
+      await logActivity({
+        type: "alert",
+        action: "resolve",
+        title: "System Alert Resolved",
+        description: `Resolved system alert: ${alert.title}`,
+        timestamp: serverTimestamp(),
+        performedBy: currentUser.value,
+      });
+    } catch (error) {
+      console.error("Error resolving system alert:", error);
+    }
+  }
+
   async function fetchMedicalRecords() {
     try {
       // Fetch all medical records with follow-up dates
@@ -253,30 +209,91 @@ export function useAlertsLogic() {
           followUpDate: record.followUpDate,
           reason: record.chiefComplaint || record.diagnosis,
         }));
-
-      // Calculate diagnosis stats
-      const diagnosisCounts = {};
-      records.forEach((record) => {
-        if (record.diagnosis) {
-          diagnosisCounts[record.diagnosis] =
-            (diagnosisCounts[record.diagnosis] || 0) + 1;
-        }
-      });
-
-      // Sort by count and take top 5
-      const sortedDiagnoses = Object.entries(diagnosisCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5);
-
-      // Update chart data
-      diagnosisChartOptions.xaxis.categories = sortedDiagnoses.map(
-        (item) => item[0]
-      );
-      diagnosisChartSeries.value[0].data = sortedDiagnoses.map(
-        (item) => item[1]
-      );
     } catch (error) {
       console.error("Error fetching medical records:", error);
+    }
+  }
+
+  // Update the fetchMedicationAlerts function in alertsManagement.js
+  async function fetchMedicationAlerts() {
+    try {
+      // Fetch medications
+      const medicationsRef = collection(db, "medications");
+      const querySnapshot = await getDocs(medicationsRef);
+      const medications = querySnapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      const now = new Date();
+      const thirtyDaysFromNow = new Date();
+      thirtyDaysFromNow.setDate(now.getDate() + 30);
+
+      // Generate system alerts for low stock medications
+      const lowStockMedications = medications.filter(
+        (med) => med.status === "Low Stock" || med.status === "Out of Stock"
+      );
+
+      // Generate system alerts for medications about to expire
+      const expiringMedications = medications.filter((med) => {
+        if (!med.expirationDate) return false;
+        const expDate = new Date(med.expirationDate);
+        return expDate <= thirtyDaysFromNow && expDate >= now;
+      });
+
+      // Create system alerts
+      let newSystemAlerts = [];
+
+      if (lowStockMedications.length > 0) {
+        newSystemAlerts.push({
+          id: "low-stock-" + Date.now(),
+          title: "Low Stock Medications Alert",
+          description: `${lowStockMedications.length} medication(s) ${
+            lowStockMedications.length === 1 ? "is" : "are"
+          } running low or out of stock. Please replenish soon.`,
+          priority: "High",
+          date: new Date().toISOString(),
+        });
+      }
+
+      if (expiringMedications.length > 0) {
+        newSystemAlerts.push({
+          id: "expiring-" + Date.now(),
+          title: "Medications Expiring Soon",
+          description: `${expiringMedications.length} medication(s) will expire within 30 days. Please check inventory.`,
+          priority: "Medium",
+          date: new Date().toISOString(),
+        });
+      }
+
+      systemAlerts.value = newSystemAlerts;
+
+      // Store system alerts in localStorage to make them available for the sidebar
+      localStorage.setItem("systemAlerts", JSON.stringify(newSystemAlerts));
+    } catch (error) {
+      console.error("Error fetching medication alerts:", error);
+    }
+  }
+
+  // Update the resolveSystemAlert function
+  async function resolveSystemAlert(alert) {
+    try {
+      // Remove from the system alerts array
+      systemAlerts.value = systemAlerts.value.filter((a) => a.id !== alert.id);
+
+      // Update localStorage
+      localStorage.setItem("systemAlerts", JSON.stringify(systemAlerts.value));
+
+      await logActivity({
+        type: "alert",
+        action: "resolve",
+        title: "System Alert Resolved",
+        description: `Resolved system alert: ${alert.title}`,
+        timestamp: serverTimestamp(),
+        performedBy: currentUser.value,
+      });
+    } catch (error) {
+      console.error("Error resolving system alert:", error);
     }
   }
 
@@ -345,6 +362,7 @@ export function useAlertsLogic() {
   onMounted(() => {
     listenToChanges();
     fetchMedicalRecords();
+    fetchMedicationAlerts();
   });
 
   return {
@@ -368,12 +386,11 @@ export function useAlertsLogic() {
     markAsRead,
     unreadAlerts,
     followUpReminders,
-    diagnosisChartOptions,
-    diagnosisChartSeries,
-    chartOptions,
-    chartSeries,
+    systemAlerts,
+    resolveSystemAlert,
     currentReminderIndex,
     nextReminder,
     prevReminder,
+    allUnreadAlerts,
   };
 }

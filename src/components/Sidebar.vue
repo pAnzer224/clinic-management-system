@@ -182,7 +182,7 @@ import {
   ArrowRightOnRectangleIcon,
 } from "@heroicons/vue/24/solid";
 import { useRouter } from "vue-router";
-import { ref, onMounted, computed, onBeforeUnmount } from "vue";
+import { ref, onMounted, computed, onBeforeUnmount, watch } from "vue";
 import {
   getFirestore,
   collection,
@@ -210,6 +210,7 @@ export default {
     const alertNotificationsCount = ref(0);
     const previousAlertCount = ref(0);
     const notificationSound = ref(null);
+    const systemAlerts = ref([]);
     const db = getFirestore();
 
     const handleClickOutside = (event) => {
@@ -226,22 +227,65 @@ export default {
         where("isRead", "==", false),
         where("priority", "in", ["High", "Medium"])
       );
-      const unsubscribe = onSnapshot(unreadQuery, (snapshot) => {
-        previousAlertCount.value = alertNotificationsCount.value;
-        alertNotificationsCount.value = snapshot.docs.length;
 
-        // Play sound only when new alerts arrive
-        if (alertNotificationsCount.value > previousAlertCount.value) {
-          playNotificationSound();
-        }
+      const unsubscribe = onSnapshot(unreadQuery, (snapshot) => {
+        updateNotificationCount(snapshot.docs.length);
       });
+
       return unsubscribe;
+    };
+
+    const updateNotificationCount = (dbAlertsCount) => {
+      previousAlertCount.value = alertNotificationsCount.value;
+
+      // Get system alerts from localStorage
+      const storedSystemAlerts = localStorage.getItem("systemAlerts");
+      if (storedSystemAlerts) {
+        systemAlerts.value = JSON.parse(storedSystemAlerts);
+      }
+
+      // Count high and medium priority system alerts
+      const highPrioritySystemAlerts = systemAlerts.value.filter(
+        (alert) => alert.priority === "High" || alert.priority === "Medium"
+      ).length;
+
+      // Total count is database alerts + system alerts
+      alertNotificationsCount.value = dbAlertsCount + highPrioritySystemAlerts;
+
+      // Play sound only when total count increases
+      if (alertNotificationsCount.value > previousAlertCount.value) {
+        playNotificationSound();
+      }
     };
 
     const playNotificationSound = () => {
       const audio = new Audio("/notif-sound.mp3");
       audio.play().catch((error) => {
         console.warn("Unable to play notification sound:", error);
+      });
+    };
+
+    // Watch for changes in system alerts in localStorage
+    const watchSystemAlerts = () => {
+      window.addEventListener("storage", (event) => {
+        if (event.key === "systemAlerts") {
+          const storedSystemAlerts = event.newValue
+            ? JSON.parse(event.newValue)
+            : [];
+          systemAlerts.value = storedSystemAlerts;
+
+          // Get current db alerts count
+          const alertsRef = collection(db, "healthAlerts");
+          const unreadQuery = query(
+            alertsRef,
+            where("isRead", "==", false),
+            where("priority", "in", ["High", "Medium"])
+          );
+
+          onSnapshot(unreadQuery, (snapshot) => {
+            updateNotificationCount(snapshot.docs.length);
+          });
+        }
       });
     };
 
@@ -252,6 +296,13 @@ export default {
       }
       document.addEventListener("click", handleClickOutside);
       setupAlertNotifications();
+      watchSystemAlerts();
+
+      // Initial load of system alerts
+      const storedSystemAlerts = localStorage.getItem("systemAlerts");
+      if (storedSystemAlerts) {
+        systemAlerts.value = JSON.parse(storedSystemAlerts);
+      }
     });
 
     onBeforeUnmount(() => {

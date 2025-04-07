@@ -64,7 +64,7 @@
                   <th class="pb-4 w-1/6">Student ID</th>
                   <th class="pb-4 w-1/6">Chief Complaint</th>
                   <th class="pb-4 w-1/6">Treatment</th>
-                  <th class="pb-4 w-1/6">Status</th>
+                  <th class="pb-4 w-1/6">Remarks</th>
                   <th class="pb-4 w-1/12">Actions</th>
                 </tr>
               </thead>
@@ -97,7 +97,7 @@
                     <td class="w-1/6">{{ record.studentId }}</td>
                     <td class="w-1/6 truncate">{{ record.chiefComplaint }}</td>
                     <td class="w-1/6 truncate">{{ record.treatment }}</td>
-                    <td class="w-1/6">{{ record.status }}</td>
+                    <td class="w-1/6">{{ record.remarks }}</td>
                     <td class="w-1/12 space-x-2">
                       <button
                         @click="editRecord(record)"
@@ -163,6 +163,15 @@
         </div>
       </div>
     </div>
+
+    <!-- Activity Toast -->
+    <div
+      v-if="showToast"
+      class="fixed bottom-4 right-4 bg-blue1 text-white px-6 py-3 rounded-lg shadow-lg transition-opacity duration-500"
+      :class="{ 'opacity-100': showToast, 'opacity-0': !showToast }"
+    >
+      {{ toastMessage }}
+    </div>
   </main>
 </template>
 
@@ -175,16 +184,7 @@ import { IntersectingCirclesSpinner } from "epic-spinners";
 import Dropdown from "@/components/Dropdown.vue";
 import Pagination from "@/components/Pagination.vue";
 import { ref, computed, onMounted } from "vue";
-import {
-  collection,
-  getDocs,
-  setDoc,
-  doc,
-  deleteDoc,
-  serverTimestamp,
-} from "firebase/firestore";
-import { db } from "@/firebase-config";
-import { logActivity } from "@/utils/activity-logger";
+import { serverTimestamp } from "firebase/firestore";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import autoTable from "jspdf-autotable";
@@ -224,28 +224,21 @@ export default {
       editRecord,
       deleteRecord,
       submitForm,
+      isSubmitting,
     } = useRecordsList();
 
-    const showStudentModal = ref(false);
-    const studentFormData = ref({
-      studentId: "",
-      lastName: "",
-      firstName: "",
-      middleInitial: "",
-      age: "",
-      sex: "",
-      nationality: "",
-      address: "",
-      religion: "",
-      course: "",
-      yearLevel: "1st Year",
-      guardianName: "",
-      guardianOccupation: "",
-      guardianAddress: "",
-      guardianContact: "",
-      profileImage: "",
-      labTest: "",
-    });
+    // Toast notification
+    const showToast = ref(false);
+    const toastMessage = ref("");
+
+    // Function to display a toast message
+    const displayToast = (message) => {
+      toastMessage.value = message;
+      showToast.value = true;
+      setTimeout(() => {
+        showToast.value = false;
+      }, 3000); // Toast will disappear after 3 seconds
+    };
 
     // Add pagination
     const currentPage = ref(1);
@@ -397,34 +390,31 @@ export default {
       doc.save("medical_records.pdf");
     };
 
-    async function handleStudentSubmit(data) {
-      try {
-        const studentData = {
-          ...data,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-
-        await setDoc(doc(db, "students", data.studentId), studentData);
-
-        await logActivity({
-          type: "student",
-          action: "create",
-          title: "New Student Added",
-          description: `Added new student ${data.firstName} ${data.lastName}`,
-          timestamp: serverTimestamp(),
-          performedBy: currentUser.value,
-        });
-
-        formData.value.student = studentData;
-        formData.value.studentId = studentData.studentId;
-        formData.value.studentName = `${studentData.firstName} ${studentData.lastName}`;
-
-        showStudentModal.value = false;
-      } catch (error) {
-        console.error("Error saving student:", error);
+    // Modified submitForm to show toast notification
+    const handleSubmitForm = async (formData) => {
+      await submitForm(formData);
+      // After successful submission, show toast
+      if (isEditing.value) {
+        displayToast(
+          `Medical record for ${formData.studentName} updated successfully`
+        );
+      } else {
+        displayToast(
+          `Medical record for ${formData.studentName} added successfully`
+        );
       }
-    }
+      // Close modal immediately after submission
+      showModal.value = false;
+    };
+
+    // Modified deleteRecord to show toast notification
+    const handleDeleteRecord = async (record) => {
+      await deleteRecord(record);
+      // After successful deletion
+      displayToast(
+        `Medical record for ${record.studentName} deleted successfully`
+      );
+    };
 
     return {
       // Return all composable values and functions
@@ -443,12 +433,9 @@ export default {
       appointments,
       showAddRecord,
       editRecord,
-      deleteRecord,
-      submitForm,
-
-      showStudentModal,
-      studentFormData,
-      handleStudentSubmit,
+      deleteRecord: handleDeleteRecord,
+      submitForm: handleSubmitForm,
+      isSubmitting,
       currentPage,
       itemsPerPage,
       paginatedRecords,
@@ -456,6 +443,8 @@ export default {
       downloadTableAsPDF,
       formatDate,
       formatTime,
+      showToast,
+      toastMessage,
     };
   },
 };
