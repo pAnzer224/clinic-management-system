@@ -28,4 +28,7 @@ module.exports = {
       },
     },
   ],
+  // Add the download page to navigation fallback options
+  navigateFallback: "/index.html",
+  navigateFallbackAllowlist: [/^\/(?!\/?download)/],
 };
