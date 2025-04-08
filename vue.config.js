@@ -4,7 +4,7 @@ module.exports = defineConfig({
   // Added PWA configuration for downloadable capability
   pwa: {
     name: "Clinic Management System",
-    themeColor: "#4DBA87",
+    themeColor: "#3f73ce",
     msTileColor: "#000000",
     appleMobileWebAppCapable: "yes",
     appleMobileWebAppStatusBarStyle: "black",
