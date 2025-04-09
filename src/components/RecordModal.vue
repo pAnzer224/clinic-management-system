@@ -3,7 +3,7 @@
     v-if="modelValue"
     class="fixed inset-0 flex justify-center items-center z-50"
   >
-    <div class="fixed inset-0 bg-black/50" @click="handleBackgroundClick"></div>
+    <div class="fixed inset-0 bg-black/50"></div>
     <div
       :class="[
         'relative bg-white rounded-2xl p-8 shadow-lg h-[90vh]',

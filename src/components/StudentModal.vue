@@ -3,7 +3,7 @@
     v-if="modelValue"
     class="fixed inset-0 flex justify-center items-center z-[9999]"
   >
-    <div class="fixed inset-0 bg-black/50" @click="handleBackgroundClick"></div>
+    <div class="fixed inset-0 bg-black/50"></div>
     <div
       class="relative bg-white rounded-2xl p-8 shadow-lg w-[700px] h-[90vh] overflow-hidden z-[9999]"
       @click.stop
@@ -316,7 +316,7 @@
                 <h3 class="font-satoshi-bold">Health Information</h3>
                 <HealthExamForm
                   ref="healthExamFormRef"
-                  :formData="formData.healthExamData"
+                  :formData="autofilledHealthExamData"
                   @update:formData="updateHealthExamData"
                 />
               </div>
@@ -327,7 +327,7 @@
                 <h3 class="font-satoshi-bold">Physical Examination</h3>
                 <PhysicalExamForm
                   ref="physicalExamFormRef"
-                  :formData="formData.physicalExamData"
+                  :formData="autofilledPhysicalExamData"
                   @update:formData="updatePhysicalExamData"
                 />
               </div>
@@ -541,6 +541,30 @@ export default {
     const uploading = ref(false);
     const duplicateIdError = ref(false);
 
+    // Compute auto-filled data for Health Examination Form
+    const autofilledHealthExamData = computed(() => {
+      return {
+        ...modalFunctions.formData.value.healthExamData,
+        lastName: modalFunctions.formData.value.personalInfo.lastName,
+        firstName: modalFunctions.formData.value.personalInfo.firstName,
+        middleName: modalFunctions.formData.value.personalInfo.middleInitial,
+        age: modalFunctions.formData.value.personalInfo.age,
+        sex: modalFunctions.formData.value.personalInfo.sex,
+        nationality: modalFunctions.formData.value.personalInfo.nationality,
+      };
+    });
+
+    // Compute auto-filled data for Physical Examination Form
+    const autofilledPhysicalExamData = computed(() => {
+      return {
+        ...modalFunctions.formData.value.physicalExamData,
+        lastName: modalFunctions.formData.value.personalInfo.lastName,
+        firstName: modalFunctions.formData.value.personalInfo.firstName,
+        middleName: modalFunctions.formData.value.personalInfo.middleInitial,
+        age: modalFunctions.formData.value.personalInfo.age,
+      };
+    });
+
     const checkStudentId = () => {
       const exists = modalFunctions.allStudents.value.some(
         (student) =>
@@ -635,6 +659,8 @@ export default {
       uploading,
       duplicateIdError,
       checkStudentId,
+      autofilledHealthExamData,
+      autofilledPhysicalExamData,
     };
   },
 };

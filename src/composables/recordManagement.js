@@ -563,12 +563,6 @@ export function useRecordModal(props, { emit }) {
     emit("update:modelValue", false);
   }
 
-  function handleBackgroundClick(event) {
-    if (event.target === event.currentTarget) {
-      closeModal();
-    }
-  }
-
   function determineStatus(currentStock, minimumStock) {
     if (currentStock <= 0) return "Out of Stock";
     if (currentStock <= minimumStock) return "Low Stock";
@@ -701,7 +695,7 @@ export function useRecordModal(props, { emit }) {
     addMedication,
     removeMedication,
     closeModal,
-    handleBackgroundClick,
+
     submitForm,
     handleMedicationSubmit,
     handleStudentSubmit,

@@ -206,6 +206,7 @@
               v-model="appointmentForm.time"
               :options="timeSlotOptions"
               placeholder="Select Time Slot"
+              style="z-index: 99999"
               required
             />
             <p
@@ -220,6 +221,17 @@
               </router-link>
             </p>
           </div>
+          <div>
+            <label class="block mb-1">Appointment Type</label>
+            <Dropdown
+              v-model="appointmentForm.type"
+              :options="appointmentTypeOptions"
+              placeholder="Select Appointment Type"
+              required
+              class="w-full"
+            />
+          </div>
+
           <div>
             <label class="block mb-1">Reason for Visit</label>
             <textarea
@@ -356,6 +368,11 @@ export default {
         label: `${student.firstName} ${student.lastName} (${student.studentId})`,
       }));
     });
+    const appointmentTypeOptions = ref([
+      { value: "regular", label: "Regular Consultation" },
+      { value: "emergency", label: "Emergency" },
+      { value: "followup", label: "Follow-up Visit" },
+    ]);
 
     const initialFormState = {
       studentName: "",
@@ -363,6 +380,7 @@ export default {
       date: "",
       time: "",
       reason: "",
+      type: "regular",
     };
 
     const appointmentForm = ref({ ...initialFormState });
@@ -718,6 +736,7 @@ export default {
       nextAppointment,
       prevAppointment,
       selectSearchResult,
+      appointmentTypeOptions,
     };
   },
 };

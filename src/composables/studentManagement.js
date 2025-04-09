@@ -300,12 +300,6 @@ export function useStudentModal(props, emit) {
     emit("update:modelValue", false);
   }
 
-  function handleBackgroundClick(event) {
-    if (event.target === event.currentTarget) {
-      closeModal();
-    }
-  }
-
   async function handleFormSubmit() {
     if (!props.isEditing && currentStep.value < 4) {
       currentStep.value++;
@@ -359,7 +353,6 @@ export function useStudentModal(props, emit) {
     handleDocumentChange,
     viewDocument,
     closeModal,
-    handleBackgroundClick,
     handleFormSubmit,
     formatDate,
     toggleAccordion,

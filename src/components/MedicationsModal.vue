@@ -2,7 +2,6 @@
   <div
     v-if="modelValue"
     class="fixed inset-0 z-50 bg-text/50 flex justify-center items-center"
-    @click="handleBackgroundClick"
   >
     <div
       class="bg-white rounded-2xl p-8 shadow-lg w-[800px] max-h-[90vh] overflow-y-auto"
@@ -219,12 +218,6 @@ export default {
       emit("update:modelValue", false);
     }
 
-    function handleBackgroundClick(event) {
-      if (event.target === event.currentTarget) {
-        closeModal();
-      }
-    }
-
     async function submitForm() {
       emit("submit", { ...formData.value });
       closeModal();
@@ -236,7 +229,6 @@ export default {
       categoryOptions,
       submitButtonText,
       closeModal,
-      handleBackgroundClick,
       submitForm,
     };
   },
