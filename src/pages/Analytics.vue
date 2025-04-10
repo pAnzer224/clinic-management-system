@@ -55,11 +55,6 @@
           <h2 class="text-lg font-satoshi-medium">
             Students Requiring Medication by Course
           </h2>
-          <Dropdown
-            v-model="selectedAcademicYear"
-            :options="academicYearOptions"
-            class="w-32 text-sm"
-          />
         </div>
         <div
           v-if="loadingMedicationChart"
@@ -157,7 +152,7 @@
 </template>
 
 <script>
-import { ref, onMounted, computed, watch, onBeforeUnmount } from "vue";
+import { ref, onMounted, computed, onBeforeUnmount } from "vue";
 import {
   collection,
   query,
@@ -234,15 +229,6 @@ export default {
       },
     ]);
 
-    const selectedAcademicYear = ref("All");
-    const academicYearOptions = computed(() => {
-      const years = JSON.parse(localStorage.getItem("academicYears") || "[]");
-      return [
-        { value: "All", label: "All Years" },
-        ...years.map((year) => ({ value: year, label: year })),
-      ];
-    });
-
     // Course medication chart data
     const medicationChartSeries = ref([]);
     const medicationChartOptions = ref({
@@ -302,6 +288,9 @@ export default {
       chart: {
         type: "bar",
         stacked: false,
+        toolbar: {
+          show: false,
+        },
       },
       plotOptions: {
         bar: {
@@ -336,7 +325,12 @@ export default {
 
     // Top medications chart data
     const topMedicationsOptions = ref({
-      chart: { type: "donut" },
+      chart: {
+        type: "donut",
+        toolbar: {
+          show: false,
+        },
+      },
       labels: [],
       colors: ["#3B82F6", "#10B981", "#F59E0B", "#EF4444", "#8B5CF6"],
       legend: { position: "bottom" },
@@ -351,7 +345,7 @@ export default {
     const topMedicationsSeries = ref([]);
     const unsubscribes = [];
 
-    // Fetch course medication data with year filter
+    // Fetch course medication data
     async function fetchMedicationByCoursesData() {
       loadingMedicationChart.value = true;
       try {
@@ -364,7 +358,7 @@ export default {
           BEED: 0,
         };
 
-        // Get all medical records for the selected year
+        // Get all medical records
         let recordsQuery = query(
           collection(db, "medicalRecords"),
           orderBy("date", "desc")
@@ -391,14 +385,6 @@ export default {
             ).then((studentSnapshot) => {
               if (!studentSnapshot.empty) {
                 const student = studentSnapshot.docs[0].data();
-
-                // Apply academic year filter
-                if (
-                  selectedAcademicYear.value !== "All" &&
-                  student.academicYear !== selectedAcademicYear.value
-                ) {
-                  return;
-                }
 
                 // Count medication usage by course
                 if (
@@ -562,8 +548,10 @@ export default {
             appointmentDate = new Date(appointment.date);
           }
 
-          // Get day of week (0-6)
-          const dayIndex = appointmentDate.getDay();
+          // Fix: Get day of week (0 = Sunday, 6 = Saturday) and adjust to match display order (0 = Monday, 6 = Sunday)
+          let dayIndex = appointmentDate.getDay();
+          // Convert from Sunday-based (0-6) to Monday-based (0-6)
+          dayIndex = dayIndex === 0 ? 6 : dayIndex - 1;
 
           // Count by type
           const type = (appointment.type || "regular").toLowerCase();
@@ -709,19 +697,12 @@ export default {
       unsubscribes.forEach((unsubscribe) => unsubscribe());
     });
 
-    // Only reload the Course Medication chart when the academic year changes
-    watch(selectedAcademicYear, () => {
-      fetchMedicationByCoursesData();
-    });
-
     return {
       stats,
       loadingMedicationChart,
       loadingAppointmentChart,
       loadingGenderChart,
       loadingTopMedChart,
-      selectedAcademicYear,
-      academicYearOptions,
       medicationChartOptions,
       medicationChartSeries,
       appointmentChartOptions,

@@ -165,6 +165,7 @@
             <label class="block mb-1">Student</label>
             <StudentSearch
               :students="students"
+              style="z-index: 9999"
               @select-student="selectSearchResult"
             >
               <template #dropdown>
@@ -206,7 +207,7 @@
               v-model="appointmentForm.time"
               :options="timeSlotOptions"
               placeholder="Select Time Slot"
-              style="z-index: 99999"
+              style="z-index: 999"
               required
             />
             <p
@@ -228,10 +229,8 @@
               :options="appointmentTypeOptions"
               placeholder="Select Appointment Type"
               required
-              class="w-full"
             />
           </div>
-
           <div>
             <label class="block mb-1">Reason for Visit</label>
             <textarea
@@ -330,6 +329,13 @@ export default {
     const timeSlotOptions = computed(() => {
       return timeSlots.value.map((slot) => ({ value: slot, label: slot }));
     });
+
+    const appointmentTypeOptions = [
+      { value: "regular", label: "Regular Consultation" },
+      { value: "emergency", label: "Emergency Case" },
+      { value: "followup", label: "Follow-up Visit" },
+    ];
+
     let unsubscribeAppointments = null;
     let unsubscribeStudents = null;
     let unsubscribeSettings = null;
@@ -368,11 +374,6 @@ export default {
         label: `${student.firstName} ${student.lastName} (${student.studentId})`,
       }));
     });
-    const appointmentTypeOptions = ref([
-      { value: "regular", label: "Regular Consultation" },
-      { value: "emergency", label: "Emergency" },
-      { value: "followup", label: "Follow-up Visit" },
-    ]);
 
     const initialFormState = {
       studentName: "",
@@ -719,6 +720,7 @@ export default {
       appointmentForm,
       studentFormData,
       timeSlotOptions,
+      appointmentTypeOptions,
       studentOptions,
       currentIndex,
       showToast,
@@ -736,7 +738,6 @@ export default {
       nextAppointment,
       prevAppointment,
       selectSearchResult,
-      appointmentTypeOptions,
     };
   },
 };

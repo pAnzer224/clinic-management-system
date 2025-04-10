@@ -46,14 +46,13 @@
     <!-- Search Results -->
     <div
       v-if="isSearchActive && searchResults.length > 0"
-      class="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-md z-10"
+      class="absolute top-full left-0 right-0 mt-1 bg-white border rounded-lg shadow-md z-50 max-h-60 overflow-y-auto"
     >
       <div
         v-for="student in searchResults"
         :key="student.id"
         @click="selectStudent(student)"
         class="p-3 hover:bg-blue1/10 cursor-pointer border-b last:border-b-0 flex items-center gap-3"
-        style="z-index: 9999"
       >
         <div class="w-8 h-8 rounded-full bg-blue1/20 overflow-hidden">
           <img
