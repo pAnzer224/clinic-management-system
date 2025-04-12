@@ -9,7 +9,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
   },
   global: {
     headers: {
-      "Cache-Control": "no-cache",
+      "Cache-Control": "max-age=3600",
     },
   },
 });
@@ -26,31 +26,27 @@ export async function uploadImageToSupabase(file, bucket = "image-uploads") {
   }
 
   try {
-    // Generate a more efficient filename
     const fileName = `${Date.now()}-${Math.random()
       .toString(36)
-      .substring(2, 10)}${getExtension(file.name)}`;
+      .substring(2, 7)}${getExtension(file.name)}`;
 
-    // Compress image if it's a compatible type and over 1MB
+    // Always compress image files
     let fileToUpload = file;
-    if (file.size > 1024 * 1024 && isImageCompressible(file.type)) {
-      fileToUpload = await compressImage(file);
+    if (isImageCompressible(file.type)) {
+      fileToUpload = await compressImage(file, 800); // Max width 800px for profile images
     }
 
-    // Pre-calculate the public URL
     const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/public/${fileName}`;
 
-    // Perform the upload with optimized settings
     const { error } = await supabase.storage
       .from(bucket)
       .upload(`public/${fileName}`, fileToUpload, {
-        cacheControl: "3600",
-        upsert: true, // Changed to true for faster overwrite
+        cacheControl: "31536000", // Cache for 1 year
+        upsert: true,
         contentType: file.type,
       });
 
     if (error) throw error;
-
     return publicUrl;
   } catch (error) {
     console.error("Upload failed:", error);
@@ -59,11 +55,52 @@ export async function uploadImageToSupabase(file, bucket = "image-uploads") {
 }
 
 /**
- * Compresses an image file to reduce size and upload time
+ * Uploads a document to Supabase Storage
+ * @param {File} file The document file to upload
+ * @param {string} bucket The storage bucket name (default: 'image-uploads')
+ * @returns {Promise<string>} The public URL of the uploaded document
+ */
+export async function uploadDocumentToSupabase(file, bucket = "image-uploads") {
+  if (!file) {
+    throw new Error("No document provided");
+  }
+
+  try {
+    const fileName = `${Date.now()}-${Math.random()
+      .toString(36)
+      .substring(2, 7)}${getExtension(file.name)}`;
+    const folder = "documents";
+
+    let fileToUpload = file;
+    if (file.size > 1024 * 1024 && isImageCompressible(file.type)) {
+      fileToUpload = await compressImage(file, 1200); // Higher quality for documents
+    }
+
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${folder}/${fileName}`;
+
+    const { error } = await supabase.storage
+      .from(bucket)
+      .upload(`${folder}/${fileName}`, fileToUpload, {
+        cacheControl: "31536000", // Cache for 1 year
+        upsert: true,
+        contentType: file.type,
+      });
+
+    if (error) throw error;
+    return publicUrl;
+  } catch (error) {
+    console.error("Document upload failed:", error);
+    throw error;
+  }
+}
+
+/**
+ * Compresses an image file to reduce size and improve load time
  * @param {File} file The image file to compress
+ * @param {number} maxSize The maximum width/height of the image
  * @returns {Promise<Blob>} A compressed version of the image
  */
-async function compressImage(file) {
+async function compressImage(file, maxSize = 800) {
   return new Promise((resolve) => {
     const reader = new FileReader();
     reader.readAsDataURL(file);
@@ -72,16 +109,16 @@ async function compressImage(file) {
       img.src = event.target.result;
       img.onload = () => {
         const canvas = document.createElement("canvas");
-        const MAX_SIZE = 1200;
         let width = img.width;
         let height = img.height;
 
-        if (width > height && width > MAX_SIZE) {
-          height = Math.round((height * MAX_SIZE) / width);
-          width = MAX_SIZE;
-        } else if (height > MAX_SIZE) {
-          width = Math.round((width * MAX_SIZE) / height);
-          height = MAX_SIZE;
+        // Resize based on the longer dimension
+        if (width > height && width > maxSize) {
+          height = Math.round((height * maxSize) / width);
+          width = maxSize;
+        } else if (height > maxSize) {
+          width = Math.round((width * maxSize) / height);
+          height = maxSize;
         }
 
         canvas.width = width;
@@ -90,15 +127,62 @@ async function compressImage(file) {
         const ctx = canvas.getContext("2d");
         ctx.drawImage(img, 0, 0, width, height);
 
+        // Adjust quality based on file type
+        const quality =
+          file.type === "image/jpeg" || file.type === "image/jpg" ? 0.8 : 0.9;
+
         canvas.toBlob(
           (blob) => {
             resolve(blob);
           },
           file.type,
-          0.7 // quality
+          quality
         );
       };
     };
+  });
+}
+
+/**
+ * Helper to compress existing images in Supabase storage
+ * @param {string} url The URL of the image to compress
+ * @param {number} maxSize Maximum width/height for the compressed image
+ * @returns {Promise<Blob>} The compressed image blob
+ */
+export async function compressExistingImage(url, maxSize = 800) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height && width > maxSize) {
+        height = Math.round((height * maxSize) / width);
+        width = maxSize;
+      } else if (height > maxSize) {
+        width = Math.round((width * maxSize) / height);
+        height = maxSize;
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, width, height);
+
+      canvas.toBlob(
+        (blob) => {
+          resolve(blob);
+        },
+        "image/jpeg",
+        0.8
+      );
+    };
+
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = url;
   });
 }
 
@@ -120,46 +204,4 @@ function isImageCompressible(mimeType) {
  */
 function getExtension(filename) {
   return filename.substring(filename.lastIndexOf("."));
-}
-
-/**
- * Uploads a document to Supabase Storage
- * @param {File} file The document file to upload
- * @param {string} bucket The storage bucket name (default: 'image-uploads')
- * @returns {Promise<string>} The public URL of the uploaded document
- */
-export async function uploadDocumentToSupabase(file, bucket = "image-uploads") {
-  if (!file) {
-    throw new Error("No document provided");
-  }
-
-  try {
-    const fileName = `${Date.now()}-${Math.random()
-      .toString(36)
-      .substring(2, 10)}${getExtension(file.name)}`;
-    const folder = "documents";
-
-    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${folder}/${fileName}`;
-
-    let fileToUpload = file;
-    if (file.size > 1024 * 1024 && isImageCompressible(file.type)) {
-      fileToUpload = await compressImage(file);
-    }
-
-    // Perform the upload with optimized settings
-    const { error } = await supabase.storage
-      .from(bucket)
-      .upload(`${folder}/${fileName}`, fileToUpload, {
-        cacheControl: "3600",
-        upsert: true,
-        contentType: file.type,
-      });
-
-    if (error) throw error;
-
-    return publicUrl;
-  } catch (error) {
-    console.error("Document upload failed:", error);
-    throw error;
-  }
 }

@@ -113,6 +113,7 @@
                             v-if="student.profileImage"
                             :src="student.profileImage"
                             class="w-full h-full object-cover"
+                            loading="lazy"
                             alt="Profile"
                           />
                         </div>
@@ -242,7 +243,7 @@ export default {
 
     // Add sorting
     const sortColumn = ref("studentId");
-    const sortDirection = ref("desc");
+    const sortDirection = ref("asc");
 
     // Sort logic
     const toggleSort = (column) => {
@@ -257,6 +258,15 @@ export default {
     const sortedStudents = computed(() => {
       return [...filteredStudents.value].sort((a, b) => {
         const modifier = sortDirection.value === "asc" ? 1 : -1;
+
+        // Special handling for studentId column to ensure proper numeric sorting
+        if (sortColumn.value === "studentId") {
+          const aNum = parseInt(a.studentId, 10);
+          const bNum = parseInt(b.studentId, 10);
+          return (aNum - bNum) * modifier;
+        }
+
+        // Regular sorting for other columns
         if (a[sortColumn.value] < b[sortColumn.value]) return -1 * modifier;
         if (a[sortColumn.value] > b[sortColumn.value]) return 1 * modifier;
         return 0;
