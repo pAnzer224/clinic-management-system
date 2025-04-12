@@ -25,7 +25,6 @@
       </div>
     </div>
 
-    <!-- Removed the min-height div and made it conditional -->
     <p
       v-if="isAllOpen"
       class="text-xs text-gray-500 mt-2 mb-4 flex justify-end font-satoshi-italic tracking-wide"
@@ -89,7 +88,7 @@
           </div>
           <div v-else class="divide-y divide-gray-200">
             <div
-              v-for="student in course.students"
+              v-for="student in paginatedStudents(course)"
               :key="student.id"
               class="py-3 flex justify-between"
             >
@@ -119,6 +118,13 @@
               </div>
             </div>
           </div>
+
+          <Pagination
+            v-if="getTotalPages(course) > 1"
+            v-model="coursePages[course.name]"
+            :total-pages="getTotalPages(course)"
+            @click.stop
+          />
         </div>
       </div>
     </div>
@@ -140,6 +146,7 @@ import {
   UtensilsIcon,
 } from "lucide-vue-next";
 import Dropdown from "@/components/Dropdown.vue";
+import Pagination from "@/components/Pagination.vue";
 
 export default {
   name: "CourseAccordion",
@@ -153,6 +160,7 @@ export default {
     CalculatorIcon,
     UtensilsIcon,
     Dropdown,
+    Pagination,
   },
   props: {
     selectedAcademicYear: {
@@ -185,6 +193,35 @@ export default {
 
     const openIndex = ref(null);
     const isAllOpen = ref(true);
+
+    // Pagination settings
+    const itemsPerPage = 5;
+    const coursePages = ref({
+      BSCRIM: 1,
+      BEED: 1,
+      BSED: 1,
+      BSIT: 1,
+      BSAB: 1,
+      BSHM: 1,
+    });
+
+    const getTotalPages = (course) => {
+      return Math.ceil(course.students.length / itemsPerPage) || 1;
+    };
+
+    const paginatedStudents = (course) => {
+      // Sort students by ID in ascending order
+      const sortedStudents = [...course.students].sort((a, b) => {
+        const aNum = parseInt(a.id, 10);
+        const bNum = parseInt(b.id, 10);
+        return aNum - bNum;
+      });
+
+      const currentPage = coursePages.value[course.name];
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const endIndex = startIndex + itemsPerPage;
+      return sortedStudents.slice(startIndex, endIndex);
+    };
 
     const toggleAll = () => {
       isAllOpen.value = !isAllOpen.value;
@@ -300,9 +337,9 @@ export default {
           }
         });
 
-        // Sort students alphabetically
-        courses.value.forEach((course) => {
-          course.students.sort((a, b) => a.name.localeCompare(b.name));
+        // Reset pagination for all courses
+        Object.keys(coursePages.value).forEach((key) => {
+          coursePages.value[key] = 1;
         });
       } catch (error) {
         console.error("Error fetching student data:", error);
@@ -346,6 +383,9 @@ export default {
       getCourseColorBg,
       selectedYear,
       academicYearOptions,
+      coursePages,
+      paginatedStudents,
+      getTotalPages,
     };
   },
 };
