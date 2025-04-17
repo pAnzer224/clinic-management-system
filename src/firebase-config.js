@@ -8,7 +8,7 @@ import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDZTnsWBVZLME6pwQWBV_ImVZjIgMOg9c4",
-  authDomain: "clinic-management-system-e7756.firebaseapp.com",
+  authDomain: "cpsu-cms.web.app",
   projectId: "clinic-management-system-e7756",
   storageBucket: "clinic-management-system-e7756.firebasestorage.app",
   messagingSenderId: "174570586492",
