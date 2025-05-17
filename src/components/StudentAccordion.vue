@@ -57,6 +57,62 @@
       </div>
     </div>
 
+    <!-- Referrals Accordion (New) -->
+    <div class="bg-graytint/50 rounded-xl">
+      <button
+        @click="toggleAccordion('referrals')"
+        class="w-full p-4 flex justify-between items-center font-satoshi-bold"
+      >
+        Referrals
+        <ChevronDownIcon
+          :class="[
+            'w-5 h-5 transition-transform',
+            activeAccordion === 'referrals' ? 'rotate-180' : '',
+          ]"
+        />
+      </button>
+      <div v-show="activeAccordion === 'referrals'" class="p-4 pt-0 space-y-2">
+        <div
+          v-if="referrals.length > 0"
+          v-for="referral in referrals"
+          :key="referral.id"
+          class="flex justify-between items-center p-3 bg-white rounded-lg hover:bg-gray-50"
+        >
+          <div class="flex flex-col">
+            <span class="text-sm font-medium">{{ referral.hospitalName }}</span>
+            <span class="text-xs text-gray-500">{{
+              formatDate(referral.createdAt)
+            }}</span>
+          </div>
+          <div class="flex items-center">
+            <span
+              class="px-2 py-1 text-xs rounded-full mr-2"
+              :class="{
+                'bg-yellow-100 text-yellow-800': referral.status === 'Pending',
+                'bg-green-100 text-green-800': referral.status === 'Completed',
+                'bg-red-100 text-red-800': referral.status === 'Cancelled',
+              }"
+            >
+              {{ referral.status }}
+            </span>
+            <button
+              v-if="referral.documentUrl"
+              @click="viewDocument(referral.documentUrl)"
+              class="text-blue1"
+            >
+              <EyeIcon class="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        <div
+          v-if="referrals.length === 0"
+          class="p-3 bg-white rounded-lg text-center text-gray-500"
+        >
+          No referrals found for this student
+        </div>
+      </div>
+    </div>
+
     <div class="bg-graytint/50 rounded-xl">
       <button
         @click="toggleAccordion('appointments')"
@@ -209,7 +265,7 @@
 </template>
 
 <script>
-import { ref, computed, onMounted, onUnmounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import {
   ChevronDownIcon,
   EyeIcon,
@@ -217,7 +273,13 @@ import {
   CheckCircleIcon,
   PlusCircleIcon,
 } from "@heroicons/vue/24/solid";
-import { collection, query, orderBy, onSnapshot } from "firebase/firestore";
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  where,
+} from "firebase/firestore";
 import { db } from "@/firebase-config";
 import DocumentViewerModal from "./DocumentViewerModal.vue";
 import { handleDocumentUpload as uploadDocument } from "@/utils/document-upload-utils";
@@ -257,10 +319,44 @@ export default {
     const showAppointmentDetailModal = ref(false);
     const selectedAppointment = ref(null);
     const appointments = ref([]);
+    const referrals = ref([]);
     const showDocumentViewer = ref(false);
     const selectedDocument = ref("");
     const uploadRefs = ref({});
     let unsubscribeAppointments = null;
+    let unsubscribeReferrals = null;
+
+    // Function to create and set up the Firestore referrals listener
+    const setupReferralsListener = () => {
+      // Only create query if studentId exists and is not empty
+      if (props.studentId) {
+        const referralsQuery = query(
+          collection(db, "referrals"),
+          where("studentId", "==", props.studentId),
+          orderBy("timestamp", "desc")
+        );
+
+        if (unsubscribeReferrals) {
+          unsubscribeReferrals();
+        }
+
+        unsubscribeReferrals = onSnapshot(
+          referralsQuery,
+          (snapshot) => {
+            referrals.value = snapshot.docs.map((doc) => ({
+              id: doc.id,
+              ...doc.data(),
+            }));
+          },
+          (error) => {
+            console.error("Error fetching referrals:", error);
+          }
+        );
+      } else {
+        // If no valid studentId, set empty array
+        referrals.value = [];
+      }
+    };
 
     onMounted(() => {
       const appointmentsQuery = query(
@@ -281,11 +377,25 @@ export default {
           console.error("Error fetching appointments:", error);
         }
       );
+
+      // Set up referrals listener if studentId is valid
+      setupReferralsListener();
     });
+
+    // Watch for changes to studentId and re-setup the listener if it changes
+    watch(
+      () => props.studentId,
+      (newStudentId) => {
+        setupReferralsListener();
+      }
+    );
 
     onUnmounted(() => {
       if (unsubscribeAppointments) {
         unsubscribeAppointments();
+      }
+      if (unsubscribeReferrals) {
+        unsubscribeReferrals();
       }
     });
 
@@ -308,6 +418,7 @@ export default {
     });
 
     function formatDate(date) {
+      if (!date) return "";
       return new Date(date).toLocaleDateString("en-US", {
         year: "numeric",
         month: "long",
@@ -354,6 +465,7 @@ export default {
       activeAccordion,
       upcomingAppointments,
       concludedAppointments,
+      referrals,
       showAppointmentDetailModal,
       selectedAppointment,
       showDocumentViewer,

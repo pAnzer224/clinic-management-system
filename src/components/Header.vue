@@ -32,7 +32,15 @@
             {{ formattedDateTime }}
           </div>
         </div>
-
+        <router-link
+          to="/referrals"
+          class="hidden sm:block"
+          :class="{
+            'text-blue1 font-satoshi-medium': $route.path === '/referrals',
+            'text-gray-600 hover:text-gray-900': $route.path !== '/referrals',
+          }"
+          >Referrals</router-link
+        >
         <router-link
           to="/analytics"
           class="hidden sm:block"

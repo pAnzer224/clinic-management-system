@@ -57,10 +57,15 @@ export async function uploadImageToSupabase(file, bucket = "image-uploads") {
 /**
  * Uploads a document to Supabase Storage
  * @param {File} file The document file to upload
+ * @param {string} folderName The folder name to store the document (default: 'documents')
  * @param {string} bucket The storage bucket name (default: 'image-uploads')
  * @returns {Promise<string>} The public URL of the uploaded document
  */
-export async function uploadDocumentToSupabase(file, bucket = "image-uploads") {
+export async function uploadDocumentToSupabase(
+  file,
+  folderName = "documents",
+  bucket = "image-uploads"
+) {
   if (!file) {
     throw new Error("No document provided");
   }
@@ -69,18 +74,17 @@ export async function uploadDocumentToSupabase(file, bucket = "image-uploads") {
     const fileName = `${Date.now()}-${Math.random()
       .toString(36)
       .substring(2, 7)}${getExtension(file.name)}`;
-    const folder = "documents";
 
     let fileToUpload = file;
     if (file.size > 1024 * 1024 && isImageCompressible(file.type)) {
       fileToUpload = await compressImage(file, 1200); // Higher quality for documents
     }
 
-    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${folder}/${fileName}`;
+    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${bucket}/${folderName}/${fileName}`;
 
     const { error } = await supabase.storage
       .from(bucket)
-      .upload(`${folder}/${fileName}`, fileToUpload, {
+      .upload(`${folderName}/${fileName}`, fileToUpload, {
         cacheControl: "31536000", // Cache for 1 year
         upsert: true,
         contentType: file.type,

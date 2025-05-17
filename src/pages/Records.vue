@@ -65,7 +65,7 @@
                   <th class="pb-4 w-1/6">Chief Complaint</th>
                   <th class="pb-4 w-1/6">Treatment</th>
                   <th class="pb-4 w-1/6">Remarks</th>
-                  <th class="pb-4 w-1/12">Actions</th>
+                  <th class="pb-4 w-16 text-center">Actions</th>
                 </tr>
               </thead>
             </table>
@@ -98,19 +98,30 @@
                     <td class="w-1/6 truncate">{{ record.chiefComplaint }}</td>
                     <td class="w-1/6 truncate">{{ record.treatment }}</td>
                     <td class="w-1/6">{{ record.remarks }}</td>
-                    <td class="w-1/12 space-x-2">
-                      <button
-                        @click="editRecord(record)"
-                        class="text-blue2/90 hover:text-blue1"
-                      >
-                        <Eye class="h-5 w-5 inline" />
-                      </button>
-                      <button
-                        @click="deleteRecord(record)"
-                        class="text-red-600"
-                      >
-                        <Trash2 class="h-5 w-5 inline" />
-                      </button>
+                    <td class="w-16 text-center">
+                      <div class="flex justify-center">
+                        <button
+                          @click="editRecord(record)"
+                          class="text-blue2/90 hover:text-blue1 p-1"
+                          title="Edit Record"
+                        >
+                          <Eye class="h-4 w-4" />
+                        </button>
+                        <button
+                          @click="showReferralModal(record)"
+                          class="text-green-600 hover:text-green-700 p-1"
+                          title="Refer to Hospital"
+                        >
+                          <Stethoscope class="h-4 w-4" />
+                        </button>
+                        <button
+                          @click="deleteRecord(record)"
+                          class="text-red-600 hover:text-red-700 p-1"
+                          title="Delete Record"
+                        >
+                          <Trash2 class="h-4 w-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 </tbody>
@@ -138,6 +149,13 @@
       :students="students"
       :appointments="appointments"
       @submit="submitForm"
+    />
+
+    <!-- Hospital Referral Modal -->
+    <HospitalReferralModal
+      v-model="showHospitalReferral"
+      :record-data="selectedRecord"
+      @referral-submitted="handleReferralSubmitted"
     />
 
     <div
@@ -177,9 +195,10 @@
 
 <script>
 import { useRecordsList } from "@/composables/recordManagement";
-import { Download, Eye, Trash2, X, Search } from "lucide-vue-next";
+import { Download, Eye, Trash2, X, Search, Stethoscope } from "lucide-vue-next";
 import RecordModal from "@/components/RecordModal.vue";
 import StudentModal from "@/components/StudentModal.vue";
+import HospitalReferralModal from "@/components/HospitalReferralModal.vue";
 import { IntersectingCirclesSpinner } from "epic-spinners";
 import Dropdown from "@/components/Dropdown.vue";
 import Pagination from "@/components/Pagination.vue";
@@ -200,10 +219,12 @@ export default {
     Trash2,
     X,
     Search,
+    Stethoscope,
     IntersectingCirclesSpinner,
     Dropdown,
     StudentModal,
     Pagination,
+    HospitalReferralModal,
   },
   setup() {
     const {
@@ -272,6 +293,21 @@ export default {
         hour: "2-digit",
         minute: "2-digit",
       });
+    };
+
+    // Referral functionality
+    const showHospitalReferral = ref(false);
+    const selectedRecord = ref(null);
+
+    const showReferralModal = (record) => {
+      selectedRecord.value = record;
+      showHospitalReferral.value = true;
+    };
+
+    const handleReferralSubmitted = (referralData) => {
+      displayToast(
+        `Referral created for ${referralData.patientName} to ${referralData.hospitalName}`
+      );
     };
 
     // PDF Download Method
@@ -445,6 +481,10 @@ export default {
       formatTime,
       showToast,
       toastMessage,
+      showHospitalReferral,
+      selectedRecord,
+      showReferralModal,
+      handleReferralSubmitted,
     };
   },
 };

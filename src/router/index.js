@@ -42,6 +42,12 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
+    path: "/referrals",
+    name: "Referrals",
+    component: () => import("@/pages/Refferals.vue"),
+    meta: { requiresAuth: true },
+  },
+  {
     path: "/analytics",
     name: "Analytics",
     component: () => import("@/pages/Analytics.vue"),
