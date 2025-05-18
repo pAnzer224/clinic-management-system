@@ -17,7 +17,7 @@ import { useCRUD } from "@/utils/firebaseCRUD";
 import { logActivity } from "@/utils/activity-logger";
 import { db } from "@/firebase-config";
 
-// Constants
+// Constants for course and form options
 export const courseOptions = [
   { value: "", label: "Choose a Course" },
   { value: "BSCRIM", label: "BSCRIM" },
@@ -48,6 +48,7 @@ export const sexOptions = [
   { value: "Female", label: "Female" },
 ];
 
+// Document type labels for UI display
 export const documentLabels = {
   medicalCertificate: "Medical Certificate",
   urinalysisReport: "Urinalysis Report",
@@ -59,9 +60,11 @@ export const documentLabels = {
   physicalExam: "Physical Examination Form",
 };
 
+// Accepted file types for document uploads
 export const acceptedDocumentTypes =
   ".pdf,.doc,.docx,.jpg,.jpeg,.png,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/jpeg,image/png";
 
+// Initial form structure for student data
 const INITIAL_FORM = {
   studentId: "",
   lastName: "",
@@ -84,7 +87,7 @@ const INITIAL_FORM = {
   documents: {},
 };
 
-// Student Modal Functionality
+// Student Modal Functionality - handles modal operations and form logic
 export function useStudentModal(props, emit) {
   const fileInput = ref(null);
   const imagePreview = ref(null);
@@ -98,6 +101,7 @@ export function useStudentModal(props, emit) {
   const allStudents = ref([]);
   let studentsUnsubscribe = null;
 
+  // Form data structure with organized sections
   const formData = ref({
     profileImage: "",
     personalInfo: {
@@ -133,6 +137,7 @@ export function useStudentModal(props, emit) {
       physicalExam: "",
     },
 
+    // Document loading states
     medicalCertificateLoading: false,
     urinalysisReportLoading: false,
     radiologicReportLoading: false,
@@ -145,6 +150,7 @@ export function useStudentModal(props, emit) {
     physicalExamData: {},
   });
 
+  // Watch for changes in initial form data and populate form
   watch(
     () => props.initialFormData,
     (newVal) => {
@@ -190,6 +196,7 @@ export function useStudentModal(props, emit) {
     { immediate: true, deep: true }
   );
 
+  // Auto-scroll to top when changing steps
   watch(currentStep, () => {
     nextTick(() => {
       if (formScrollContainer.value) {
@@ -198,7 +205,7 @@ export function useStudentModal(props, emit) {
     });
   });
 
-  // Setup real-time student data listener
+  // Setup real-time listener for all students data
   function setupStudentsListener() {
     const q = query(collection(db, "students"), orderBy("lastName"));
     studentsUnsubscribe = onSnapshot(q, (snapshot) => {
@@ -219,6 +226,7 @@ export function useStudentModal(props, emit) {
     }
   });
 
+  // Filter appointments by date for upcoming/concluded
   const upcomingAppointments = computed(() => {
     return props.appointments.filter((apt) => new Date(apt.date) > new Date());
   });
@@ -227,6 +235,7 @@ export function useStudentModal(props, emit) {
     return props.appointments.filter((apt) => new Date(apt.date) <= new Date());
   });
 
+  // Handle profile image upload and preview
   async function handleImageChange(event) {
     const file = event.target.files[0];
     if (file) {
@@ -236,6 +245,7 @@ export function useStudentModal(props, emit) {
     }
   }
 
+  // Handle document file uploads
   async function handleDocumentChange(event, documentKey) {
     const file = event.target.files[0];
     if (file) {
@@ -249,20 +259,24 @@ export function useStudentModal(props, emit) {
     }
   }
 
+  // Update health exam data from child component
   function updateHealthExamData(newData) {
     formData.value.healthExamData = newData;
   }
 
+  // Update physical exam data from child component
   function updatePhysicalExamData(newData) {
     formData.value.physicalExamData = newData;
   }
 
+  // Update document data from child components
   function updateDocument(documentData) {
     if (documentData && documentData.key && documentData.data) {
       formData.value.documents[documentData.key] = documentData.data;
     }
   }
 
+  // Handle next step button in multi-step form
   async function handleNext() {
     if (currentStep.value === 2) {
       if (healthExamFormRef.value) {
@@ -286,26 +300,31 @@ export function useStudentModal(props, emit) {
     currentStep.value++;
   }
 
+  // Handle previous step button
   function handlePrevious() {
     currentStep.value--;
   }
 
+  // Open document viewer modal
   function viewDocument(documentData) {
     selectedDocument.value = documentData;
     showDocumentViewer.value = true;
   }
 
+  // Close the modal and reset state
   function closeModal() {
     currentStep.value = 1;
     emit("update:modelValue", false);
   }
 
+  // Handle form submission
   async function handleFormSubmit() {
     if (!props.isEditing && currentStep.value < 4) {
       currentStep.value++;
       return;
     }
 
+    // Prepare submission data by flattening form structure
     const submissionData = {
       ...formData.value.personalInfo,
       ...formData.value.academicInfo,
@@ -321,10 +340,12 @@ export function useStudentModal(props, emit) {
     emit("submit", submissionData);
   }
 
+  // Toggle accordion sections
   function toggleAccordion(section) {
     activeAccordion.value = activeAccordion.value === section ? null : section;
   }
 
+  // Format date for display
   function formatDate(date) {
     return new Date(date).toLocaleDateString("en-US", {
       year: "numeric",
@@ -364,22 +385,30 @@ export function useStudentModal(props, emit) {
   };
 }
 
-// Students List Functionality
+// Students List Functionality - handles the main students listing page
 export function useStudentsList() {
   const route = useRoute();
+  // Removed loading spinner dependency, using simple boolean flag
   const loading = ref(true);
   const error = ref(null);
   const students = ref([]);
   let studentsUnsubscribe = null;
 
+  // Filter and search states
   const searchQuery = ref("");
   const filterYear = ref("");
   const filterSchoolYear = ref("");
+
+  // Modal states
   const showModal = ref(false);
   const isEditing = ref(false);
   const formData = ref({ ...INITIAL_FORM });
+
+  // Notification states
   const showToast = ref(false);
   const toastMessage = ref("");
+
+  // User and related data
   const currentUser = ref(
     JSON.parse(localStorage.getItem("currentUser")) || {}
   );
@@ -388,7 +417,7 @@ export function useStudentsList() {
   let unsubscribeAppointments = null;
   let unsubscribeMedicalRecords = null;
 
-  // Use direct Firestore snapshot listener instead of CRUD helper for more control
+  // Setup Firestore listeners for real-time updates without heavy spinner dependencies
   function listenToStudentChanges() {
     loading.value = true;
     const studentsRef = collection(db, "students");
@@ -401,6 +430,7 @@ export function useStudentsList() {
           id: doc.id,
           ...doc.data(),
         }));
+        // Set loading to false immediately after data is received
         loading.value = false;
       },
       (err) => {
@@ -411,6 +441,7 @@ export function useStudentsList() {
     );
   }
 
+  // Listen to appointments collection for real-time updates
   function listenToAppointments() {
     const appointmentsQuery = query(
       collection(db, "appointments"),
@@ -432,6 +463,7 @@ export function useStudentsList() {
     );
   }
 
+  // Listen to medical records for specific student
   function listenToStudentMedicalRecords(studentId) {
     if (unsubscribeMedicalRecords) {
       unsubscribeMedicalRecords();
@@ -461,6 +493,7 @@ export function useStudentsList() {
     );
   }
 
+  // Fetch medical records for a specific student
   async function fetchMedicalRecords(studentId) {
     try {
       listenToStudentMedicalRecords(studentId);
@@ -470,6 +503,7 @@ export function useStudentsList() {
     }
   }
 
+  // Computed filter options for year levels
   const yearFilterOptions = computed(() => {
     return [
       { value: "", label: "All Years" },
@@ -480,6 +514,7 @@ export function useStudentsList() {
     ];
   });
 
+  // Computed filter options for school years
   const schoolYearFilterOptions = computed(() => {
     return [
       { value: "", label: "All Academic Years" },
@@ -489,6 +524,7 @@ export function useStudentsList() {
     ];
   });
 
+  // Filter students based on search and filter criteria
   const filteredStudents = computed(() => {
     return students.value.filter((student) => {
       const matchesYear =
@@ -508,6 +544,7 @@ export function useStudentsList() {
     });
   });
 
+  // Show notification toast message
   function showNotification(message) {
     toastMessage.value = message;
     showToast.value = true;
@@ -516,6 +553,7 @@ export function useStudentsList() {
     }, 3000);
   }
 
+  // Initialize students data and listeners
   function initializeStudents() {
     if (route.query.openModal === "true") {
       add();
@@ -524,6 +562,7 @@ export function useStudentsList() {
     listenToAppointments();
   }
 
+  // Open modal for adding new student
   function add() {
     isEditing.value = false;
     formData.value = { ...INITIAL_FORM };
@@ -531,6 +570,7 @@ export function useStudentsList() {
     showModal.value = true;
   }
 
+  // Open modal for editing existing student
   async function editStudent(student) {
     isEditing.value = true;
     formData.value = { ...student };

@@ -3,13 +3,19 @@
     <div class="flex justify-between items-center">
       <h1 class="text-2xl font-satoshi-bold text-text">Hospital Referrals</h1>
       <div class="flex gap-2">
-        <button
-          @click="downloadTableAsPDF"
-          class="text-blue1 hover:text-blue1/80 flex items-center justify-center gap-2 px-4 py-2 rounded-full border border-blue1/30"
-        >
-          <Download class="size-5" />
-          <span>Export List</span>
-        </button>
+        <div class="relative group">
+          <button
+            @click="downloadTableAsPDF"
+            class="text-blue1 hover:text-blue1/80 flex items-center justify-center h-full"
+          >
+            <Download class="size-6" />
+          </button>
+          <div
+            class="absolute z-10 bottom-[-33px] left-[-98px] tracking-wide bg-gray-800/70 text-background text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap"
+          >
+            Download as PDF
+          </div>
+        </div>
       </div>
     </div>
 

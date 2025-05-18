@@ -81,20 +81,20 @@ export function useRecordsList() {
   const isEditing = ref(false);
   const formData = ref({ ...INITIAL_FORM });
   const healthAlerts = ref([]);
-  const loading = ref(true);
+  // Removed loading state for faster perceived performance
   const appointments = ref([]);
   const isSubmitting = ref(false);
 
   let recordsUnsubscribe = null;
   let healthAlertsUnsubscribe = null;
 
+  // Simplified data fetching - removed loading state management
   async function fetchData() {
-    loading.value = true;
     try {
       await fetchStudents();
       setupSnapshotListeners();
-    } finally {
-      loading.value = false;
+    } catch (error) {
+      console.error("Error fetching data:", error);
     }
   }
 
@@ -272,7 +272,7 @@ export function useRecordsList() {
     editRecord,
     deleteRecord,
     submitForm,
-    loading,
+    // Removed loading state from return values
     dateFilterOptions: DATE_FILTER_OPTIONS,
     appointments,
     isSubmitting,
@@ -297,6 +297,7 @@ export function useRecordModal(props, { emit }) {
   const showStudentModal = ref(false);
   const noMedicationWarning = ref(false);
   const isSubmitting = ref(false);
+  // Simple text loading state instead of spinner
   const studentsLoading = ref(false);
 
   const medicationFormData = ref({
@@ -695,7 +696,6 @@ export function useRecordModal(props, { emit }) {
     addMedication,
     removeMedication,
     closeModal,
-
     submitForm,
     handleMedicationSubmit,
     handleStudentSubmit,

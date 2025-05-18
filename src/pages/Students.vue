@@ -36,12 +36,9 @@
           />
         </div>
 
+        <!-- Simple loading text instead of spinner -->
         <div v-if="loading" class="flex justify-center items-center py-8">
-          <intersecting-circles-spinner
-            :animation-duration="1200"
-            :size="70"
-            color="#3f73ce"
-          />
+          <p class="text-gray-500 text-sm">Please wait, loading students...</p>
         </div>
 
         <div v-else class="relative">
@@ -193,7 +190,7 @@ import {
   ChevronDownIcon,
 } from "@heroicons/vue/24/outline";
 import StudentModal from "@/components/StudentModal.vue";
-import { IntersectingCirclesSpinner } from "epic-spinners";
+// Removed IntersectingCirclesSpinner import for faster loading
 import Dropdown from "@/components/Dropdown.vue";
 import Pagination from "@/components/Pagination.vue";
 import { useStudentsList } from "@/composables/studentManagement";
@@ -206,7 +203,7 @@ export default {
     TrashIcon,
     MagnifyingGlassIcon,
     ChevronDownIcon,
-    IntersectingCirclesSpinner,
+    // Removed IntersectingCirclesSpinner component registration
     Dropdown,
     Pagination,
   },
@@ -237,15 +234,15 @@ export default {
       cleanup,
     } = useStudentsList();
 
-    // Add pagination
+    // Pagination state management
     const currentPage = ref(1);
     const itemsPerPage = ref(10);
 
-    // Add sorting
+    // Sorting state management
     const sortColumn = ref("studentId");
     const sortDirection = ref("asc");
 
-    // Sort logic
+    // Toggle sort direction and column for table headers
     const toggleSort = (column) => {
       if (sortColumn.value === column) {
         sortDirection.value = sortDirection.value === "desc" ? "asc" : "desc";
@@ -255,6 +252,7 @@ export default {
       }
     };
 
+    // Computed property for sorted students based on current sort settings
     const sortedStudents = computed(() => {
       return [...filteredStudents.value].sort((a, b) => {
         const modifier = sortDirection.value === "asc" ? 1 : -1;
@@ -266,27 +264,31 @@ export default {
           return (aNum - bNum) * modifier;
         }
 
-        // Regular sorting for other columns
+        // Regular sorting for other columns (string comparison)
         if (a[sortColumn.value] < b[sortColumn.value]) return -1 * modifier;
         if (a[sortColumn.value] > b[sortColumn.value]) return 1 * modifier;
         return 0;
       });
     });
 
+    // Computed property for paginated students based on current page
     const paginatedStudents = computed(() => {
       const startIndex = (currentPage.value - 1) * itemsPerPage.value;
       const endIndex = startIndex + itemsPerPage.value;
       return sortedStudents.value.slice(startIndex, endIndex);
     });
 
+    // Calculate total pages for pagination component
     const totalStudentPages = computed(() => {
       return Math.ceil(filteredStudents.value.length / itemsPerPage.value) || 1;
     });
 
+    // Initialize component when mounted
     onMounted(() => {
       initializeStudents();
     });
 
+    // Cleanup when component is unmounted
     onBeforeUnmount(() => {
       cleanup();
     });

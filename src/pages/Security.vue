@@ -22,17 +22,8 @@
         </button>
       </div>
 
-      <!-- Loading State -->
-      <div v-if="loadingAdmins" class="flex justify-center items-center py-8">
-        <intersecting-circles-spinner
-          :animation-duration="1200"
-          :size="70"
-          color="#3f73ce"
-        />
-      </div>
-
       <!-- Admin List -->
-      <div v-else class="space-y-4">
+      <div class="space-y-4">
         <div
           v-for="admin in admins"
           :key="admin.adminId"
@@ -99,17 +90,8 @@
         </button>
       </div>
 
-      <!-- Loading State -->
-      <div v-if="loadingStaff" class="flex justify-center items-center py-8">
-        <intersecting-circles-spinner
-          :animation-duration="1200"
-          :size="70"
-          color="#3f73ce"
-        />
-      </div>
-
       <!-- Staff List -->
-      <div v-else class="space-y-4">
+      <div class="space-y-4">
         <div
           v-for="staff in staffMembers"
           :key="staff.staffId"
@@ -182,11 +164,12 @@
                   class="w-full h-full object-cover"
                   alt="Profile Preview"
                 />
+                <!-- Simple loading text overlay -->
                 <div
                   v-if="uploading"
-                  class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-full"
+                  class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-sm rounded-full text-white text-xs"
                 >
-                  <LoaderIcon class="animate-spin h-8 w-8 text-white" />
+                  Please wait...
                 </div>
               </div>
               <input
@@ -280,19 +263,17 @@ import { useCRUD } from "@/utils/firebaseCRUD";
 import { serverTimestamp } from "firebase/firestore";
 import { PencilIcon } from "@heroicons/vue/24/solid";
 import { uploadImageToSupabase } from "@/utils/supabase-storage";
-import { IntersectingCirclesSpinner } from "epic-spinners";
 import { ref, computed, onMounted } from "vue";
 import Dropdown from "@/components/Dropdown.vue";
 import { logActivity } from "@/utils/activity-logger";
-import { Loader as LoaderIcon } from "lucide-vue-next";
+// Removed LoaderIcon import for faster loading
 
 export default {
   name: "Security",
   components: {
     PencilIcon,
-    IntersectingCirclesSpinner,
     Dropdown,
-    LoaderIcon,
+    // Removed LoaderIcon component for performance
   },
   setup() {
     const adminCRUD = useCRUD("admins");
@@ -319,11 +300,9 @@ export default {
       imageFile: null, // Store the actual file object
       imagePreview: null,
       currentUser: {},
-      loadingAdmins: true,
-      loadingStaff: true,
       showToast: false,
       toastMessage: "",
-      uploading: false, // Flag to track upload state
+      uploading: false, // Flag to track upload state - now displays simple text
     };
   },
   computed: {
@@ -358,6 +337,7 @@ export default {
       const file = event.target.files[0];
       if (!file) return;
 
+      // Set uploading state to show simple loading text
       this.uploading = true;
       try {
         // Display preview immediately
@@ -380,6 +360,7 @@ export default {
         console.error("Error handling image:", error);
         this.showNotification("Failed to upload image");
       } finally {
+        // Clear uploading state to remove loading text
         this.uploading = false;
       }
     },
@@ -460,21 +441,19 @@ export default {
       }
     },
     async fetchAdmins() {
-      this.loadingAdmins = true;
       try {
         await this.adminCRUD.fetchItems();
         this.admins = this.adminCRUD.items.value;
-      } finally {
-        this.loadingAdmins = false;
+      } catch (error) {
+        console.error("Error fetching admins:", error);
       }
     },
     async fetchStaff() {
-      this.loadingStaff = true;
       try {
         await this.staffCRUD.fetchItems();
         this.staffMembers = this.staffCRUD.items.value;
-      } finally {
-        this.loadingStaff = false;
+      } catch (error) {
+        console.error("Error fetching staff:", error);
       }
     },
     openModal(role, user) {
@@ -501,6 +480,7 @@ export default {
     },
 
     async saveUser() {
+      // Set uploading state for form submission loading
       this.uploading = true;
       const isAdmin = this.currentRole === "admin";
       const idField = isAdmin ? "adminId" : "staffId";
@@ -596,6 +576,7 @@ export default {
           }`
         );
       } finally {
+        // Clear uploading state regardless of success or failure
         this.uploading = false;
       }
     },

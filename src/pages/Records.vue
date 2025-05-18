@@ -46,15 +46,15 @@
           />
         </div>
 
+        <!-- Simple loading text instead of spinner -->
         <div v-if="loading" class="flex justify-center items-center py-8">
-          <intersecting-circles-spinner
-            :animation-duration="1200"
-            :size="70"
-            color="#3f73ce"
-          />
+          <p class="text-gray-500 text-sm">
+            Please wait, loading medical records...
+          </p>
         </div>
 
         <div v-else class="relative">
+          <!-- Table header - sticky at top of viewport -->
           <div class="sticky top-0 bg-white z-10">
             <table class="w-full table-fixed">
               <thead>
@@ -69,11 +69,13 @@
                 </tr>
               </thead>
             </table>
+            <!-- Table header separator line -->
             <div
               class="absolute bottom-0 left-0 right-0 border-t border-graytint"
             ></div>
           </div>
 
+          <!-- Scrollable table body -->
           <div class="relative">
             <div
               class="min-h-[calc(100.2vh-335px)] max-h-[calc(100.2vh-335px)] overflow-y-scroll no-scrollbar"
@@ -85,6 +87,7 @@
                     :key="record.id"
                     class="border-t border-graytint/50"
                   >
+                    <!-- Date column with formatted date and time -->
                     <td class="py-4 w-1/6">
                       <div class="flex flex-col">
                         <span>{{ formatDate(record.date) }}</span>
@@ -93,11 +96,17 @@
                         }}</span>
                       </div>
                     </td>
+                    <!-- Student name column -->
                     <td class="w-1/6 truncate">{{ record.studentName }}</td>
+                    <!-- Student ID column -->
                     <td class="w-1/6">{{ record.studentId }}</td>
+                    <!-- Chief complaint column -->
                     <td class="w-1/6 truncate">{{ record.chiefComplaint }}</td>
+                    <!-- Treatment column -->
                     <td class="w-1/6 truncate">{{ record.treatment }}</td>
+                    <!-- Remarks column -->
                     <td class="w-1/6">{{ record.remarks }}</td>
+                    <!-- Actions column with edit, refer, and delete buttons -->
                     <td class="w-16 text-center">
                       <div class="flex justify-center">
                         <button
@@ -127,6 +136,7 @@
                 </tbody>
               </table>
             </div>
+            <!-- Bottom fade gradient effect -->
             <div
               class="absolute bottom-0 left-0 right-0 h-8 bg-gradient-to-t from-white to-transparent pointer-events-none"
             ></div>
@@ -135,13 +145,14 @@
       </div>
     </div>
 
-    <!-- Pagination Component -->
+    <!-- Pagination Component - only show if more than one page -->
     <Pagination
       v-if="totalRecordPages > 1"
       v-model="currentPage"
       :total-pages="totalRecordPages"
     />
 
+    <!-- Modal for adding/editing medical records -->
     <RecordModal
       v-model="showModal"
       :is-editing="isEditing"
@@ -151,13 +162,14 @@
       @submit="submitForm"
     />
 
-    <!-- Hospital Referral Modal -->
+    <!-- Hospital Referral Modal for referring patients to hospital -->
     <HospitalReferralModal
       v-model="showHospitalReferral"
       :record-data="selectedRecord"
       @referral-submitted="handleReferralSubmitted"
     />
 
+    <!-- Health Alerts Modal - displays urgent health notifications -->
     <div
       v-if="showHealthAlert"
       class="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50"
@@ -182,7 +194,7 @@
       </div>
     </div>
 
-    <!-- Activity Toast -->
+    <!-- Activity Toast - success notifications for user actions -->
     <div
       v-if="showToast"
       class="fixed bottom-4 right-4 bg-blue1 text-white px-6 py-3 rounded-lg shadow-lg transition-opacity duration-500"
@@ -199,7 +211,7 @@ import { Download, Eye, Trash2, X, Search, Stethoscope } from "lucide-vue-next";
 import RecordModal from "@/components/RecordModal.vue";
 import StudentModal from "@/components/StudentModal.vue";
 import HospitalReferralModal from "@/components/HospitalReferralModal.vue";
-import { IntersectingCirclesSpinner } from "epic-spinners";
+// Removed IntersectingCirclesSpinner import for faster loading
 import Dropdown from "@/components/Dropdown.vue";
 import Pagination from "@/components/Pagination.vue";
 import { ref, computed, onMounted } from "vue";
@@ -220,13 +232,14 @@ export default {
     X,
     Search,
     Stethoscope,
-    IntersectingCirclesSpinner,
+    // Removed IntersectingCirclesSpinner from components
     Dropdown,
     StudentModal,
     Pagination,
     HospitalReferralModal,
   },
   setup() {
+    // Get composable functions and reactive data for record management
     const {
       records,
       students,
@@ -238,7 +251,7 @@ export default {
       formData,
       healthAlerts,
       filteredRecords,
-      loading,
+      loading, // Keep for simple loading state management
       dateFilterOptions,
       appointments,
       showAddRecord,
@@ -248,11 +261,11 @@ export default {
       isSubmitting,
     } = useRecordsList();
 
-    // Toast notification
+    // Toast notification system for user feedback
     const showToast = ref(false);
     const toastMessage = ref("");
 
-    // Function to display a toast message
+    // Function to display a toast message with automatic dismissal
     const displayToast = (message) => {
       toastMessage.value = message;
       showToast.value = true;
@@ -261,21 +274,23 @@ export default {
       }, 3000); // Toast will disappear after 3 seconds
     };
 
-    // Add pagination
+    // Pagination configuration for efficient data display
     const currentPage = ref(1);
     const itemsPerPage = ref(10);
 
+    // Computed property to slice records based on current page
     const paginatedRecords = computed(() => {
       const startIndex = (currentPage.value - 1) * itemsPerPage.value;
       const endIndex = startIndex + itemsPerPage.value;
       return filteredRecords.value.slice(startIndex, endIndex);
     });
 
+    // Calculate total pages needed for pagination controls
     const totalRecordPages = computed(() => {
       return Math.ceil(filteredRecords.value.length / itemsPerPage.value) || 1;
     });
 
-    // Date Formatting Functions
+    // Date Formatting Functions for consistent display across application
     const formatDate = (dateString) => {
       if (!dateString) return "";
       const date = new Date(dateString);
@@ -295,38 +310,40 @@ export default {
       });
     };
 
-    // Referral functionality
+    // Hospital referral system for patient management
     const showHospitalReferral = ref(false);
     const selectedRecord = ref(null);
 
+    // Open referral modal with selected patient record
     const showReferralModal = (record) => {
       selectedRecord.value = record;
       showHospitalReferral.value = true;
     };
 
+    // Handle successful referral submission with user feedback
     const handleReferralSubmitted = (referralData) => {
       displayToast(
         `Referral created for ${referralData.patientName} to ${referralData.hospitalName}`
       );
     };
 
-    // PDF Download Method
+    // PDF Download Method - generates comprehensive report of medical records
     const downloadTableAsPDF = () => {
       const doc = new jsPDF("landscape");
 
-      // Set page margins to center content
+      // Set page margins to center content properly on page
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       const margin = 20;
       const contentWidth = pageWidth - margin * 2;
       const centerX = pageWidth / 2;
 
-      // logo
+      // Add clinic logo to left side of header
       const logoWidth = 20;
       const logoHeight = 20;
       doc.addImage(logoSrc, "PNG", margin, margin, logoWidth, logoHeight);
 
-      //CPSU Logo
+      // Add CPSU Logo to right side of header
       const cpsuLogoWidth = 20;
       const cpsuLogoHeight = 20;
       doc.addImage(
@@ -338,7 +355,7 @@ export default {
         cpsuLogoHeight
       );
 
-      // title
+      // Add main title centered
       doc.setFontSize(18);
       doc.text(
         "Clinic Management System - Medical Records",
@@ -347,7 +364,7 @@ export default {
         { align: "center" }
       );
 
-      // current date
+      // Add current date stamp
       doc.setFontSize(10);
       doc.text(
         `As of: ${new Date().toLocaleDateString()}`,
@@ -356,6 +373,7 @@ export default {
         { align: "center" }
       );
 
+      // Define table column headers
       const tableColumns = [
         "Date",
         "Name",
@@ -365,6 +383,7 @@ export default {
         "Remarks",
       ];
 
+      // Format data for table display
       const tableData = filteredRecords.value.map((record) => [
         `${formatDate(record.date)}\n${formatTime(record.date)}`,
         record.studentName,
@@ -374,7 +393,7 @@ export default {
         record.remarks || "",
       ]);
 
-      // Generate the table with centered configuration
+      // Generate the table with centered configuration and styling
       autoTable(doc, {
         startY: margin + 30,
         head: [tableColumns],
@@ -403,6 +422,7 @@ export default {
           5: { cellWidth: contentWidth * 0.13 }, // Remarks
         },
         didDrawPage: function (data) {
+          // Add header on subsequent pages
           if (data.pageNumber > 1) {
             doc.setFontSize(12);
             doc.text(
@@ -413,6 +433,7 @@ export default {
             );
           }
 
+          // Add page number at bottom center
           doc.setFontSize(8);
           doc.text(
             `Page ${data.pageNumber}`,
@@ -423,13 +444,14 @@ export default {
         },
       });
 
+      // Download the generated PDF
       doc.save("medical_records.pdf");
     };
 
-    // Modified submitForm to show toast notification
+    // Enhanced submitForm with user feedback notifications
     const handleSubmitForm = async (formData) => {
       await submitForm(formData);
-      // After successful submission, show toast
+      // After successful submission, show appropriate feedback
       if (isEditing.value) {
         displayToast(
           `Medical record for ${formData.studentName} updated successfully`
@@ -439,21 +461,22 @@ export default {
           `Medical record for ${formData.studentName} added successfully`
         );
       }
-      // Close modal immediately after submission
+      // Close modal immediately after submission for better UX
       showModal.value = false;
     };
 
-    // Modified deleteRecord to show toast notification
+    // Enhanced deleteRecord with user feedback notifications
     const handleDeleteRecord = async (record) => {
       await deleteRecord(record);
-      // After successful deletion
+      // After successful deletion, notify user
       displayToast(
         `Medical record for ${record.studentName} deleted successfully`
       );
     };
 
+    // Return all necessary data and functions for component usage
     return {
-      // Return all composable values and functions
+      // Core record management functionality
       records,
       students,
       searchQuery,
@@ -464,7 +487,7 @@ export default {
       formData,
       healthAlerts,
       filteredRecords,
-      loading,
+      loading, // Keep for simple loading state
       dateFilterOptions,
       appointments,
       showAddRecord,
@@ -472,10 +495,12 @@ export default {
       deleteRecord: handleDeleteRecord,
       submitForm: handleSubmitForm,
       isSubmitting,
+      // Pagination functionality
       currentPage,
       itemsPerPage,
       paginatedRecords,
       totalRecordPages,
+      // Additional features
       downloadTableAsPDF,
       formatDate,
       formatTime,
