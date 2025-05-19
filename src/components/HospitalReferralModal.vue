@@ -10,13 +10,23 @@
     >
       <div class="flex justify-between items-center mb-6">
         <h2 class="text-xl font-satoshi-bold">Hospital Referral</h2>
-        <button @click="close" class="text-gray-500 hover:text-gray-700">
-          <X class="w-6 h-6" />
-        </button>
+        <div class="flex items-center gap-2">
+          <div class="relative group">
+            <button
+              @click="downloadReferral"
+              class="text-blue1 hover:text-blue1/80 flex items-center justify-center h-full"
+            >
+              <Download class="size-6" />
+            </button>
+          </div>
+          <button @click="close" class="text-gray-500 hover:text-gray-700">
+            <X class="w-6 h-6" />
+          </button>
+        </div>
       </div>
 
       <div class="h-[calc(90vh-88px)] overflow-y-scroll no-scrollbar pr-4">
-        <div ref="referralContent" class="space-y-6">
+        <div ref="referralContent" class="space-y-6 p-8 bg-white">
           <div class="text-center mb-6">
             <h1 class="text-xl font-bold">
               CENTRAL PHILIPPINES STATE UNIVERSITY
@@ -35,7 +45,7 @@
                 >
                 <input
                   v-model="referralData.patientName"
-                  class="w-full focus:outline-none bg-transparent"
+                  class="w-full focus:outline-none bg-transparent border-b border-gray-300 pb-1"
                   :disabled="viewOnly"
                 />
               </div>
@@ -45,7 +55,7 @@
                 >
                 <input
                   v-model="referralData.studentId"
-                  class="w-full focus:outline-none bg-transparent"
+                  class="w-full focus:outline-none bg-transparent border-b border-gray-300 pb-1"
                   :disabled="viewOnly"
                 />
               </div>
@@ -61,7 +71,7 @@
                 >
                 <input
                   v-model="referralData.hospitalName"
-                  class="w-full focus:outline-none bg-transparent"
+                  class="w-full focus:outline-none bg-transparent border-b border-gray-300 pb-1"
                   placeholder="Enter hospital or facility name"
                   :disabled="viewOnly"
                   required
@@ -74,7 +84,7 @@
                 <input
                   v-model="referralData.referralDate"
                   type="date"
-                  class="w-full focus:outline-none bg-transparent"
+                  class="w-full focus:outline-none bg-transparent border-b border-gray-300 pb-1"
                   :disabled="viewOnly"
                 />
               </div>
@@ -84,7 +94,7 @@
                 >
                 <textarea
                   v-model="referralData.referralReason"
-                  class="w-full border border-black focus:outline-none bg-transparent min-h-[100px] p-2"
+                  class="w-full border border-gray-300 focus:outline-none bg-transparent min-h-[100px] p-2 rounded"
                   placeholder="Briefly explain why this patient is being referred"
                   :disabled="viewOnly"
                   required
@@ -96,7 +106,7 @@
                 >
                 <textarea
                   v-model="referralData.additionalInstructions"
-                  class="w-full border border-black focus:outline-none bg-transparent min-h-[100px] p-2"
+                  class="w-full border border-gray-300 focus:outline-none bg-transparent min-h-[100px] p-2 rounded"
                   placeholder="Any additional instructions or information for the receiving facility"
                   :disabled="viewOnly"
                 ></textarea>
@@ -113,7 +123,7 @@
                 >
                 <input
                   v-model="referralData.providerName"
-                  class="w-full focus:outline-none bg-transparent"
+                  class="w-full focus:outline-none bg-transparent border-b border-gray-300 pb-1"
                   placeholder="Your name"
                   :disabled="viewOnly"
                 />
@@ -124,7 +134,7 @@
                 >
                 <input
                   v-model="referralData.providerContact"
-                  class="w-full focus:outline-none bg-transparent"
+                  class="w-full focus:outline-none bg-transparent border-b border-gray-300 pb-1"
                   placeholder="Your contact number"
                   :disabled="viewOnly"
                 />
@@ -132,12 +142,14 @@
             </div>
           </div>
 
-          <div class="flex justify-between mt-6">
-            <div class="text-center border-t border-gray-300 pt-1">
-              Provider Signature
+          <div class="flex justify-between mt-8 pt-4">
+            <div class="text-center border-t border-gray-300 pt-2 w-48">
+              <span class="text-sm text-gray-600">Provider Signature</span>
             </div>
-            <div class="text-center border-t border-gray-300 pt-1">
-              Date: {{ formatDate(new Date()) }}
+            <div class="text-center border-t border-gray-300 pt-2 w-48">
+              <span class="text-sm text-gray-600"
+                >Date: {{ formatDate(new Date()) }}</span
+              >
             </div>
           </div>
         </div>
@@ -165,7 +177,7 @@
 
 <script>
 import { ref, computed, watch } from "vue";
-import { X } from "lucide-vue-next";
+import { X, Download } from "lucide-vue-next";
 import html2canvas from "html2canvas";
 import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "@/firebase-config";
@@ -176,6 +188,7 @@ export default {
   name: "HospitalReferralModal",
   components: {
     X,
+    Download,
   },
   props: {
     modelValue: Boolean,
@@ -248,6 +261,38 @@ export default {
       emit("update:modelValue", false);
     };
 
+    const downloadReferral = async () => {
+      try {
+        const element = referralContent.value;
+        const canvas = await html2canvas(element, {
+          scale: 2,
+          logging: false,
+          useCORS: true,
+          backgroundColor: "#ffffff",
+        });
+
+        // Convert canvas to blob and download
+        canvas.toBlob(
+          (blob) => {
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `hospital_referral_${
+              referralData.value.patientName || "patient"
+            }_${Date.now()}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+          },
+          "image/png",
+          1.0
+        );
+      } catch (error) {
+        console.error("Error downloading referral:", error);
+      }
+    };
+
     const submitReferral = async () => {
       if (!isFormValid.value || isSubmitting.value) return;
 
@@ -260,6 +305,7 @@ export default {
           scale: 2, // Higher scale for better quality
           logging: false,
           useCORS: true,
+          backgroundColor: "#ffffff",
           windowWidth: element.scrollWidth,
           windowHeight: element.scrollHeight,
           // Ensure we capture the entire content
@@ -322,6 +368,7 @@ export default {
       isSubmitting,
       formatDate,
       close,
+      downloadReferral,
       submitReferral,
     };
   },

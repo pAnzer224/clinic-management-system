@@ -48,7 +48,7 @@
 
         <!-- Simple loading text instead of spinner -->
         <div v-if="loading" class="flex justify-center items-center py-8">
-          <p class="text-gray-500 text-sm">
+          <p class="text-black text-sm">
             Please wait, loading medical records...
           </p>
         </div>

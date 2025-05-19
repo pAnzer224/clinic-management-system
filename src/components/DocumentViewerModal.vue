@@ -11,12 +11,27 @@
       <div class="sticky top-0 bg-white z-20 mb-6">
         <div class="flex justify-between items-center mb-2">
           <h2 class="text-xl font-satoshi-bold">Document Viewer</h2>
-          <button
-            @click="$emit('close')"
-            class="text-gray-500 hover:text-gray-700"
-          >
-            <XMarkIcon class="w-6 h-6" />
-          </button>
+          <div class="flex items-center gap-2">
+            <div class="relative group">
+              <button
+                @click="downloadDocument"
+                class="text-blue1 hover:text-blue1/80 flex items-center justify-center h-full"
+              >
+                <Download class="size-6" />
+                <div
+                  class="absolute z-10 bottom-[-33px] left-[-98px] tracking-wide bg-gray-800/70 text-background text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap"
+                >
+                  Download as PDF
+                </div>
+              </button>
+            </div>
+            <button
+              @click="$emit('close')"
+              class="text-gray-500 hover:text-gray-700"
+            >
+              <XMarkIcon class="w-6 h-6" />
+            </button>
+          </div>
         </div>
       </div>
 
@@ -60,12 +75,14 @@
 </template>
 <script>
 import { XMarkIcon } from "@heroicons/vue/24/solid";
+import { Download } from "lucide-vue-next";
 import { computed } from "vue";
 
 export default {
   name: "DocumentViewerModal",
   components: {
     XMarkIcon,
+    Download,
   },
   props: {
     show: Boolean,
@@ -81,8 +98,55 @@ export default {
       );
     });
 
+    const downloadDocument = async () => {
+      if (!props.documentUrl) return;
+
+      try {
+        // Fetch the document
+        const response = await fetch(props.documentUrl);
+        const blob = await response.blob();
+
+        // Create download link
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+
+        // Determine file extension from URL or content type
+        let extension = "";
+        if (props.documentUrl.includes(".")) {
+          extension = props.documentUrl.split(".").pop().split("?")[0];
+        } else if (blob.type) {
+          const mimeToExt = {
+            "image/jpeg": "jpg",
+            "image/png": "png",
+            "image/gif": "gif",
+            "image/webp": "webp",
+            "application/pdf": "pdf",
+            "text/plain": "txt",
+          };
+          extension = mimeToExt[blob.type] || "bin";
+        }
+
+        link.download = `document_${Date.now()}.${extension}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error("Error downloading document:", error);
+        // Fallback to original simple method
+        const link = document.createElement("a");
+        link.href = props.documentUrl;
+        link.download = `document_${Date.now()}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    };
+
     return {
       isImageDocument,
+      downloadDocument,
     };
   },
 };
