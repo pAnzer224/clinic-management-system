@@ -21,7 +21,7 @@
                 <div
                   class="absolute z-10 bottom-[-33px] left-[-98px] tracking-wide bg-gray-800/70 text-background text-xs rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap"
                 >
-                  Download as PDF
+                  Download document
                 </div>
               </button>
             </div>

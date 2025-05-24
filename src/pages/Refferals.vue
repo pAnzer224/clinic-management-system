@@ -63,10 +63,9 @@
                 <tr class="text-left text-text/60">
                   <th class="pb-4 w-1/6">Date</th>
                   <th class="pb-4 w-1/6">Patient Name</th>
-                  <th class="pb-4 w-1/6">Student ID</th>
-                  <th class="pb-4 w-1/6">Hospital</th>
+                  <th class="pb-4 w-1/6">Referred From</th>
+                  <th class="pb-4 w-1/6">Referred To</th>
                   <th class="pb-4 w-1/6">Reason</th>
-                  <th class="pb-4 w-1/6">Status</th>
                   <th class="pb-4 w-1/12">Actions</th>
                 </tr>
               </thead>
@@ -89,34 +88,17 @@
                   >
                     <td class="py-4 w-1/6">
                       <div class="flex flex-col">
-                        <span>{{ formatDate(referral.referralDate) }}</span>
+                        <span>{{ formatDate(referral.referral_date) }}</span>
                         <span class="text-xs text-gray-500">{{
-                          formatDate(referral.createdAt)
+                          formatDate(referral.created_at)
                         }}</span>
                       </div>
                     </td>
-                    <td class="w-1/6 truncate">{{ referral.patientName }}</td>
-                    <td class="w-1/6">{{ referral.studentId }}</td>
-                    <td class="w-1/6 truncate">{{ referral.hospitalName }}</td>
+                    <td class="w-1/6 truncate">{{ referral.patient_name }}</td>
+                    <td class="w-1/6 truncate">{{ referral.referred_from }}</td>
+                    <td class="w-1/6 truncate">{{ referral.referred_to }}</td>
                     <td class="w-1/6 truncate">
-                      {{ referral.referralReason }}
-                    </td>
-                    <td class="w-1/6">
-                      <span
-                        class="px-2 py-1 rounded-full text-xs"
-                        :class="{
-                          'bg-yellow-100 text-yellow-800':
-                            referral.status === 'Pending',
-                          'bg-green-100 text-green-800':
-                            referral.status === 'Completed',
-                          'bg-gray-100 text-gray-800': ![
-                            'Pending',
-                            'Completed',
-                          ].includes(referral.status),
-                        }"
-                      >
-                        {{ referral.status }}
-                      </span>
+                      {{ referral.reason_for_referral }}
                     </td>
                     <td class="w-1/12 space-x-2">
                       <button
@@ -180,20 +162,8 @@ import DocumentViewerModal from "@/components/DocumentViewerModal.vue";
 import { IntersectingCirclesSpinner } from "epic-spinners";
 import Dropdown from "@/components/Dropdown.vue";
 import Pagination from "@/components/Pagination.vue";
-import { ref, computed, onMounted } from "vue";
-import {
-  collection,
-  getDocs,
-  query,
-  orderBy,
-  deleteDoc,
-  doc,
-  where,
-  onSnapshot,
-} from "firebase/firestore";
-import { db } from "@/firebase-config";
-import { serverTimestamp } from "firebase/firestore";
-import { logActivity } from "@/utils/activity-logger";
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import { createClient } from "@supabase/supabase-js";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 import autoTable from "jspdf-autotable";
@@ -219,9 +189,12 @@ export default {
     const loading = ref(true);
     const searchQuery = ref("");
     const filterDate = ref("");
-    const currentUser = ref(
-      JSON.parse(localStorage.getItem("currentUser")) || {}
-    );
+
+    // Initialize Supabase client
+    const supabaseUrl = "https://wfornkmxdpgtxvatwzne.supabase.co";
+    const supabaseKey =
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indmb3Jua214ZHBndHh2YXR3em5lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEyMjY5MzAsImV4cCI6MjA1NjgwMjkzMH0.hkUPR7wV1iVg5Zxv-1zHYVPjiO1QFPgNvuB-jHuojdY";
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Modal state
     const showReferralModal = ref(false);
@@ -244,31 +217,40 @@ export default {
       { value: "month", label: "Last 30 Days" },
     ];
 
-    let referralsUnsubscribe = null;
+    let intervalId = null;
 
     onMounted(() => {
       fetchReferrals();
+      // Poll for updates every 30 seconds
+      intervalId = setInterval(fetchReferrals, 30000);
     });
 
-    const fetchReferrals = () => {
-      loading.value = true;
-
-      if (referralsUnsubscribe) {
-        referralsUnsubscribe();
+    onUnmounted(() => {
+      if (intervalId) {
+        clearInterval(intervalId);
       }
+    });
 
-      const referralsQuery = query(
-        collection(db, "referrals"),
-        orderBy("createdAt", "desc")
-      );
+    const fetchReferrals = async () => {
+      try {
+        loading.value = true;
 
-      referralsUnsubscribe = onSnapshot(referralsQuery, (snapshot) => {
-        referrals.value = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        const { data, error } = await supabase
+          .from("referrals")
+          .select("*")
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          throw error;
+        }
+
+        referrals.value = data || [];
+      } catch (error) {
+        console.error("Error fetching referrals:", error);
+        displayToast(`Error fetching referrals: ${error.message}`);
+      } finally {
         loading.value = false;
-      });
+      }
     };
 
     const filterDateRange = (dateStr, range) => {
@@ -299,16 +281,19 @@ export default {
       return referrals.value.filter((referral) => {
         const matchesSearch =
           !searchQuery.value ||
-          referral.patientName
+          referral.patient_name
             ?.toLowerCase()
             .includes(searchQuery.value.toLowerCase()) ||
-          referral.hospitalName
+          referral.referred_to
+            ?.toLowerCase()
+            .includes(searchQuery.value.toLowerCase()) ||
+          referral.referred_from
             ?.toLowerCase()
             .includes(searchQuery.value.toLowerCase());
 
         const matchesDate =
           !filterDate.value ||
-          filterDateRange(referral.referralDate, filterDate.value);
+          filterDateRange(referral.referral_date, filterDate.value);
 
         return matchesSearch && matchesDate;
       });
@@ -327,33 +312,36 @@ export default {
     });
 
     const viewReferral = (referral) => {
-      // If the referral has an image, show it directly
-      if (referral.documentImage) {
-        selectedReferralImage.value = referral.documentImage;
+      // Show the referral image directly
+      if (referral.image_url) {
+        selectedReferralImage.value = referral.image_url;
         showDocumentViewer.value = true;
       } else {
-        // Otherwise show the form
-        selectedReferral.value = referral;
-        showReferralModal.value = true;
+        displayToast("No document image available for this referral");
       }
     };
 
     const deleteReferral = async (referral) => {
-      if (confirm("Are you sure you want to delete this referral?")) {
+      if (
+        confirm(
+          `Are you sure you want to delete the referral for ${referral.patient_name}?`
+        )
+      ) {
         try {
-          await deleteDoc(doc(db, "referrals", referral.id));
+          const { error } = await supabase
+            .from("referrals")
+            .delete()
+            .eq("id", referral.id);
 
-          await logActivity({
-            type: "referral",
-            action: "delete",
-            title: "Referral Deleted",
-            description: `Deleted hospital referral for ${referral.patientName}`,
-            timestamp: serverTimestamp(),
-            performedBy: currentUser.value,
-          });
+          if (error) {
+            throw error;
+          }
+
+          // Remove from local state
+          referrals.value = referrals.value.filter((r) => r.id !== referral.id);
 
           displayToast(
-            `Referral for ${referral.patientName} deleted successfully`
+            `Referral for ${referral.patient_name} deleted successfully`
           );
         } catch (error) {
           console.error("Error deleting referral:", error);
@@ -428,19 +416,17 @@ export default {
       const tableColumns = [
         "Referral Date",
         "Patient Name",
-        "Student ID",
-        "Hospital",
+        "Referred From",
+        "Referred To",
         "Reason for Referral",
-        "Status",
       ];
 
       const tableData = filteredReferrals.value.map((referral) => [
-        formatDate(referral.referralDate),
-        referral.patientName,
-        referral.studentId,
-        referral.hospitalName,
-        referral.referralReason,
-        referral.status,
+        formatDate(referral.referral_date),
+        referral.patient_name,
+        referral.referred_from,
+        referral.referred_to,
+        referral.reason_for_referral,
       ]);
 
       // Generate the table with centered configuration
@@ -465,11 +451,10 @@ export default {
         },
         columnStyles: {
           0: { cellWidth: contentWidth * 0.15 }, // Date
-          1: { cellWidth: contentWidth * 0.17 }, // Name
-          2: { cellWidth: contentWidth * 0.13 }, // ID
-          3: { cellWidth: contentWidth * 0.15 }, // Hospital
+          1: { cellWidth: contentWidth * 0.2 }, // Name
+          2: { cellWidth: contentWidth * 0.2 }, // From
+          3: { cellWidth: contentWidth * 0.2 }, // To
           4: { cellWidth: contentWidth * 0.25 }, // Reason
-          5: { cellWidth: contentWidth * 0.15 }, // Status
         },
         didDrawPage: function (data) {
           if (data.pageNumber > 1) {
