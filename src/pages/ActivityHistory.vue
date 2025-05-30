@@ -31,6 +31,13 @@
               class="text-sm w-32"
             />
           </div>
+          <button
+            v-if="currentUser.role === 'admin' && activities.length > 0"
+            @click.prevent="deleteAllActivities"
+            class="text-red-500 hover:text-red-700 px-3 py-2 hover:bg-red-100 rounded-md text-sm font-medium transition-colors"
+          >
+            Delete All
+          </button>
         </div>
         <div
           class="absolute bottom-0 left-0 right-0 border-t border-graytint"
@@ -111,6 +118,8 @@ import {
   Timestamp,
   deleteDoc,
   doc,
+  getDocs,
+  writeBatch,
 } from "firebase/firestore";
 import { db } from "@/firebase-config";
 import {
@@ -223,6 +232,27 @@ export default {
       }
     };
 
+    const deleteAllActivities = async () => {
+      const confirmation = prompt(
+        "Type 'DELETE ALL' to confirm deletion of all activities:"
+      );
+      if (confirmation !== "DELETE ALL") return;
+
+      try {
+        const activitiesQuery = query(collection(db, "activities"));
+        const snapshot = await getDocs(activitiesQuery);
+
+        const batch = writeBatch(db);
+        snapshot.docs.forEach((doc) => {
+          batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+      } catch (error) {
+        console.error("Error deleting all activities:", error);
+      }
+    };
+
     const getActivityIcon = (type, action) => {
       if (type === "student") {
         switch (action) {
@@ -270,6 +300,7 @@ export default {
       getActivityIcon,
       currentUser,
       deleteActivity,
+      deleteAllActivities,
     };
   },
 };

@@ -282,18 +282,18 @@ export function useStudentModal(props, emit) {
       if (healthExamFormRef.value) {
         const healthExamData = healthExamFormRef.value.saveFormData();
         updateHealthExamData(healthExamData);
-        if (healthExamFormRef.value.generatePdf) {
-          const canvas = await healthExamFormRef.value.generatePdf();
-          formData.value.documents.healthExam = canvas;
+        if (healthExamFormRef.value.generateAndSaveForm) {
+          const fileUrl = await healthExamFormRef.value.generateAndSaveForm();
+          formData.value.documents.healthExam = fileUrl;
         }
       }
     } else if (currentStep.value === 3) {
       if (physicalExamFormRef.value) {
         const physicalExamData = physicalExamFormRef.value.saveFormData();
         updatePhysicalExamData(physicalExamData);
-        if (physicalExamFormRef.value.generatePdf) {
-          const canvas = await physicalExamFormRef.value.generatePdf();
-          formData.value.documents.physicalExam = canvas;
+        if (physicalExamFormRef.value.generateAndSaveForm) {
+          const fileUrl = await physicalExamFormRef.value.generateAndSaveForm();
+          formData.value.documents.physicalExam = fileUrl;
         }
       }
     }

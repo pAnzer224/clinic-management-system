@@ -203,6 +203,7 @@
 <script setup>
 import { ref, watch } from "vue";
 import html2canvas from "html2canvas";
+import { uploadDocumentToSupabase } from "@/utils/supabase-storage";
 
 const formContent = ref(null);
 
@@ -375,7 +376,7 @@ const validateAndEmit = () => {
 };
 
 // Generate PDF
-const generatePdf = async () => {
+const generateAndSaveForm = async () => {
   if (!formContent.value) return null;
 
   try {
@@ -386,10 +387,26 @@ const generatePdf = async () => {
       useCORS: true,
     });
 
-    return canvas.toDataURL("image/png");
+    // Convert canvas to blob
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob((blob) => resolve(blob), "image/png");
+    });
+
+    // Create a file from the blob
+    const file = new File([blob], `physical-exam-${Date.now()}.png`, {
+      type: "image/png",
+    });
+
+    // Upload directly to Supabase
+    const fileUrl = await uploadDocumentToSupabase(
+      file,
+      "documents",
+      "image-uploads"
+    );
+    return fileUrl;
   } catch (error) {
-    console.error("Error generating image:", error);
-    throw new Error("Failed to generate image");
+    console.error("Error generating and saving image:", error);
+    throw new Error("Failed to generate and save image");
   }
 };
 
@@ -400,7 +417,7 @@ const saveFormData = () => {
 
 // Expose methods
 defineExpose({
-  generatePdf,
+  generateAndSaveForm,
   saveFormData,
   validateAndEmit,
 });
